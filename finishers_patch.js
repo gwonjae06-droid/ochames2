@@ -1,4 +1,4 @@
-// Extra skin visuals: no damage, turn order, or status changes.
+// Skin-only finishers and persistent cosmetic reactions. No combat-rule changes.
 (() => {
   'use strict';
   const style=document.createElement('style');
@@ -12,6 +12,10 @@
     .metal-plating{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent 9%,#eef4ff22 29%,#ffffff8a 46%,#4f6a8766 52%,transparent 75%);mix-blend-mode:screen;animation:steelShine 2.6s ease-in-out infinite}
     @keyframes steelShine{0%,100%{background-position:-120px 0;opacity:.4}50%{background-position:120px 0;opacity:1}}
     .finisher-extra{position:absolute;inset:0;width:100%;height:100%;z-index:54;pointer-events:none}
+    .stomp-leap .champion-art,.stomp-leap .sprite-label{opacity:0!important}
+    #battle-screen[data-park-stomp="yes"] .unified-skin-fx,#battle-screen[data-park-stomp="impact"] .unified-skin-fx,#battle-screen[data-park-stomp="yes"] .remote-skin-fx,#battle-screen[data-park-stomp="impact"] .remote-skin-fx{display:none!important}
+    #battle-screen[data-park-stomp="yes"] #fx-canvas{opacity:0}
+    .stomp-squashed{transition:scale .20s cubic-bezier(.2,1.5,.4,1)!important;transform-origin:50% 100%!important}
     @media(prefers-reduced-motion:reduce){.battle-screen.finisher-shake,.fractured-screen,.metal-plating{animation:none!important}}
   `;document.head.append(style);
   const actorOwn=side=>(isHost||isSpectator)?side==='p1':side==='p2';
@@ -20,7 +24,9 @@
   const hasSkin=(own,id,skin)=>mon(own)?.id===id&&sprite(own)?.dataset.skin===skin;
   const pos=(element,field)=>{const a=field.getBoundingClientRect(),b=element.getBoundingClientRect();return{x:b.left-a.left+b.width/2,y:b.top-a.top+b.height/2};};
   const between=(a,b,t)=>a+(b-a)*t;
-  let drain=null,fxKey=0,crackUntil=-1,crackBattle=-1;
+  const ease=x=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
+  const parkFront=new Image();parkFront.src='assets/skins/park-meteor.jpg';
+  let drain=null,stomp=null,fxKey=0,parkToken=0,crackUntil=-1,crackBattle=-1,flatTarget=null,flatUnitId=null,flatUntil=-1,flatBattle=-1;
   function shake(){const field=document.getElementById('battle-screen');if(!field)return;field.classList.remove('finisher-shake');void field.offsetWidth;field.classList.add('finisher-shake');setTimeout(()=>field.classList.remove('finisher-shake'),800);}
   function cracks(target){const field=document.getElementById('battle-screen');if(!field||!target)return;
     field.querySelector('.fractured-screen')?.remove();const p=pos(target,field),cx=p.x/field.clientWidth*1000,cy=p.y/field.clientHeight*600;
@@ -37,8 +43,10 @@
     for(const own of [true,false]){
       const el=sprite(own),unit=mon(own);if(!el||!unit)continue;
       const bae=hasSkin(own,'bae','bloodmoon'),park=hasSkin(own,'park','meteor');
-      el.style.transformOrigin=bae?'50% 100%':'';
-      el.style.scale=bae?String(Math.min(2.45,1+Math.max(0,unit.stages?.atk||0)*.48)):'';
+      const flat=el===flatTarget&&battleGeneration===flatBattle&&currentTurnNumber<=flatUntil&&unit.id===flatUnitId&&!unit.fainted;
+      const size=bae?Math.min(2.45,1+Math.max(0,unit.stages?.atk||0)*.48):1;
+      el.classList.toggle('stomp-squashed',flat);el.style.transformOrigin=bae||flat?'50% 100%':'';
+      el.style.scale=flat?`${size} ${size*.27}`:bae?String(size):'';
       const image=el.querySelector('img.champion-art');if(image)image.style.filter=park?`grayscale(${Math.min(1,(unit.stages?.def||0)*.23)}) contrast(${1+Math.min(.6,(unit.stages?.def||0)*.10)}) brightness(1.05)`:'';
       let plate=el.querySelector('.metal-plating');const stage=park?Math.max(0,unit.stages?.def||0):0;
       if(stage>0){if(!plate){plate=document.createElement('span');plate.className='metal-plating';el.append(plate);}plate.style.opacity=String(Math.min(.86,.24+stage*.12));}
@@ -48,7 +56,8 @@
   function overlay(kind,from,to){const field=document.getElementById('battle-screen');if(!field||!from||!to||matchMedia('(prefers-reduced-motion:reduce)').matches)return;
     let canvas=field.querySelector('.finisher-extra');if(!canvas){canvas=document.createElement('canvas');canvas.className='finisher-extra';canvas.setAttribute('aria-hidden','true');field.append(canvas);}
     const id=++fxKey,w=field.clientWidth,h=field.clientHeight,d=Math.min(2,devicePixelRatio||1);canvas.width=w*d;canvas.height=h*d;const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(d,0,0,d,0,0);
-    const a=pos(from,field),b=pos(to,field),start=performance.now(),length=kind==='stomp'?1900:1700;
+    const a=pos(from,field),b=pos(to,field),start=performance.now(),length=kind==='stomp'?2450:1700;
+    if(kind==='stomp'){from.classList.add('stomp-leap');setTimeout(()=>from.classList.remove('stomp-leap'),length+40);}
     function draw(now){if(id!==fxKey||!canvas.isConnected)return;const t=Math.min(1,(now-start)/length);ctx.clearRect(0,0,w,h);
       if(kind==='wave'){
         const dx=b.x-a.x,dy=b.y-a.y,distance=Math.max(1,Math.hypot(dx,dy));
@@ -80,11 +89,25 @@
         }
         ctx.restore();ctx.globalAlpha=1;
       }else{
-        const p=Math.min(1,t/.76),x=between(a.x,b.x,p),y=-h*.15+(b.y+h*.15)*p*p;
-        for(const dir of [-1,1]){ctx.save();ctx.translate(x+dir*31,y);ctx.rotate(dir*.14);ctx.fillStyle='#404859';ctx.shadowColor='#f9a866';ctx.shadowBlur=19;
-          ctx.beginPath();ctx.moveTo(-17,-58);ctx.lineTo(19,-58);ctx.lineTo(24,37);ctx.quadraticCurveTo(29,54,8,54);ctx.lineTo(-24,48);ctx.closePath();ctx.fill();
-          ctx.fillStyle='#b9c2cc';ctx.fillRect(-25,40,52,12);ctx.restore();}
-        if(t>.76){const r=(t-.76)/.24;ctx.save();ctx.translate(b.x,b.y);ctx.scale(1,.4);ctx.strokeStyle='#ffa75c';ctx.lineWidth=13;ctx.shadowColor='#ff8a3d';ctx.shadowBlur=22;ctx.beginPath();ctx.arc(0,0,w*.35*r,0,7);ctx.stroke();ctx.restore();}
+        const top=Math.max(18,b.y-h*.35);
+        const travel=ease(t/.26),jump=ease((t-.26)/.20),charge=ease((t-.46)/.18),returning=ease((t-.76)/.24);
+        let x=between(a.x,b.x,travel),y=between(a.y,top,travel),size=46;
+        if(t>.26&&t<=.46){x=b.x;y=top-54*Math.sin(Math.PI*jump);size=46+18*jump;}
+        if(t>.46&&t<=.76){x=b.x;y=top;size=64+44*charge;}
+        if(t>.76){x=between(b.x,a.x,returning);y=between(top,a.y,returning)-30*Math.sin(Math.PI*returning);size=108-62*returning;}
+        const sky=ctx.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#060d20f0');sky.addColorStop(1,'#25344cd6');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='#e8f3ff';for(let i=0;i<22;i++)ctx.fillRect((i*109)%w,(i*i*53)%h,1+i%2,1+i%2);
+        ctx.save();ctx.shadowColor='#f6be84';ctx.shadowBlur=22;
+        if(parkFront.complete&&parkFront.naturalWidth)ctx.drawImage(parkFront,x-size/2,y-size/2,size,size);
+        else{ctx.fillStyle='#dbeafe';ctx.font='900 19px system-ui';ctx.textAlign='center';ctx.fillText('박성원',x,y);}
+        ctx.restore();
+        if(t>.55&&t<.89){const stretch=ease((t-.55)/.19),fromY=top+size*.22,reach=Math.max(0,(b.y-fromY)*stretch);
+          for(const dir of [-1,1]){const legX=b.x+dir*28-11;
+            ctx.save();ctx.fillStyle='#3b475a';ctx.shadowColor='#ff9d5a';ctx.shadowBlur=26;
+            ctx.fillRect(legX,fromY,22,reach);ctx.fillStyle='#bac5d4';ctx.fillRect(legX-3,fromY+reach-10,28,12);ctx.restore();}}
+        if(t>.74&&t<.89){const burst=(t-.74)/.15;
+          ctx.save();ctx.translate(b.x,b.y);ctx.scale(1,.4);ctx.strokeStyle='#ffbc79';ctx.lineWidth=12;ctx.shadowColor='#ff8b3d';ctx.shadowBlur=25;
+          ctx.beginPath();ctx.arc(0,0,w*.33*burst,0,Math.PI*2);ctx.stroke();ctx.restore();}
       }
       if(t<1)requestAnimationFrame(draw);else if(id===fxKey)canvas.remove();}
     requestAnimationFrame(draw);
@@ -97,16 +120,18 @@
   });}
   function install(){
     if(typeof window.renderBattleField==='function'){const old=window.renderBattleField;window.renderBattleField=function(...args){const result=old.apply(this,args);updateAppearance();return result;};}
-    if(typeof window.startBattleScreen==='function'){const old=window.startBattleScreen;window.startBattleScreen=function(...args){document.querySelector('.fractured-screen')?.remove();crackUntil=-1;drain=null;const result=old.apply(this,args);updateAppearance();return result;};}
+    if(typeof window.startBattleScreen==='function'){const old=window.startBattleScreen;window.startBattleScreen=function(...args){document.querySelector('.fractured-screen')?.remove();document.querySelector('.finisher-extra')?.remove();for(const el of [sprite(true),sprite(false)])el?.classList.remove('stomp-leap','stomp-squashed');fxKey++;crackUntil=-1;flatUntil=-1;flatTarget=null;drain=null;stomp=null;const result=old.apply(this,args);updateAppearance();return result;};}
     if(typeof window.openMoveMenu==='function'){const old=window.openMoveMenu;window.openMoveMenu=function(...args){const result=old.apply(this,args);if(hasSkin(true,'park','meteor'))for(let i=0;i<4;i++){const label=document.getElementById(`m${i}-name`);if(label?.textContent==='메테오 스트라이크')label.textContent='점프 내려찍기';}return result;};}
     if(typeof window.playTurnEvents==='function'){const old=window.playTurnEvents;window.playTurnEvents=function(events){return old.call(this,Array.isArray(events)?cosmeticLabel(events):events);};}
-    if(typeof window.triggerSkillVisualAndAudio==='function'){const old=window.triggerSkillVisualAndAudio;window.triggerSkillVisualAndAudio=function(name,side,...args){const result=old.call(this,name,side,...args),own=actorOwn(side);
+    if(typeof window.triggerSkillVisualAndAudio==='function'){const old=window.triggerSkillVisualAndAudio;window.triggerSkillVisualAndAudio=function(name,side,...args){const own=actorOwn(side),park=name==='메테오 스트라이크'&&hasSkin(own,'park','meteor');const field=document.getElementById('battle-screen');const ticket=++parkToken;if(field)field.dataset.parkStomp=park?'yes':'off';
+      const result=old.call(this,name,side,...args);
       if(name==='드레인펀치'&&hasSkin(own,'bae','bloodmoon'))drain={side,at:Date.now(),target:sprite(!own)};
       if(name==='오물폭탄'&&hasSkin(own,'oh','abyss'))overlay('wave',sprite(own),sprite(!own));
-      if(name==='메테오 스트라이크'&&hasSkin(own,'park','meteor'))overlay('stomp',sprite(own),sprite(!own));
+      if(park){stomp={side,at:Date.now(),target:sprite(!own),targetId:mon(!own)?.id};overlay('stomp',sprite(own),sprite(!own));setTimeout(()=>{if(ticket===parkToken&&field)field.dataset.parkStomp='off';},3400);}
       return result;};}
     if(typeof window.playSkillCinematicImpactFX==='function'){const old=window.playSkillCinematicImpactFX;window.playSkillCinematicImpactFX=function(name,point){const result=old.call(this,name,point);
       if(name==='드레인펀치'&&drain&&Date.now()-drain.at<8000){shake();cracks(drain.target);drain=null;}
+      if(name==='메테오 스트라이크'&&stomp&&Date.now()-stomp.at<8000){flatTarget=stomp.target;flatUnitId=stomp.targetId;flatBattle=battleGeneration;flatUntil=currentTurnNumber+1;const field=document.getElementById('battle-screen');if(field)field.dataset.parkStomp='impact';shake();updateAppearance();stomp=null;}
       return result;};}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
