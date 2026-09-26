@@ -1,138 +1,76 @@
-// Skin-only finishers and persistent cosmetic reactions. No combat-rule changes.
+// Skin visuals only. Combat move identifiers and damage are unchanged.
 (() => {
-  'use strict';
-  const style=document.createElement('style');
-  style.textContent=`
-    .battle-screen.finisher-shake{animation:finisherShake .76s cubic-bezier(.22,.7,.26,1)!important}
-    @keyframes finisherShake{0%,100%{transform:translate(0,0) rotate(0)}9%{transform:translate(19px,-11px) rotate(1deg)}19%{transform:translate(-20px,12px) rotate(-1deg)}29%{transform:translate(17px,9px)}41%{transform:translate(-15px,-10px)}54%{transform:translate(11px,7px)}69%{transform:translate(-8px,-5px)}85%{transform:translate(4px,3px)}}
-    .fractured-screen{position:absolute;inset:0;z-index:36;width:100%;height:100%;pointer-events:none;animation:fracturePulse 1.4s ease-in-out infinite}
-    .fractured-screen path{fill:none;stroke:#e8f6ff;stroke-width:2.7;stroke-linejoin:round;filter:drop-shadow(1px 2px 2px #111827) drop-shadow(0 0 4px #fff)}
-    .fractured-screen .branch{stroke:#cbd5e1;stroke-width:1.4}
-    @keyframes fracturePulse{50%{opacity:.78}}
-    .metal-plating{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent 9%,#eef4ff22 29%,#ffffff8a 46%,#4f6a8766 52%,transparent 75%);mix-blend-mode:screen;animation:steelShine 2.6s ease-in-out infinite}
-    @keyframes steelShine{0%,100%{background-position:-120px 0;opacity:.4}50%{background-position:120px 0;opacity:1}}
-    .finisher-extra{position:absolute;inset:0;width:100%;height:100%;z-index:54;pointer-events:none}
-    .stomp-leap .champion-art,.stomp-leap .sprite-label{opacity:0!important}
-    #battle-screen[data-park-stomp="yes"] .unified-skin-fx,#battle-screen[data-park-stomp="impact"] .unified-skin-fx,#battle-screen[data-park-stomp="yes"] .remote-skin-fx,#battle-screen[data-park-stomp="impact"] .remote-skin-fx{display:none!important}
-    #battle-screen[data-park-stomp="yes"] #fx-canvas{opacity:0}
-    .stomp-squashed{transition:scale .20s cubic-bezier(.2,1.5,.4,1)!important;transform-origin:50% 100%!important}
-    @media(prefers-reduced-motion:reduce){.battle-screen.finisher-shake,.fractured-screen,.metal-plating{animation:none!important}}
-  `;document.head.append(style);
-  const actorOwn=side=>(isHost||isSpectator)?side==='p1':side==='p2';
-  const sprite=own=>document.getElementById(own?'player-sprite':'enemy-sprite');
-  const mon=own=>own?myTeam?.lead:enemyTeam?.lead;
-  const hasSkin=(own,id,skin)=>mon(own)?.id===id&&sprite(own)?.dataset.skin===skin;
-  const pos=(element,field)=>{const a=field.getBoundingClientRect(),b=element.getBoundingClientRect();return{x:b.left-a.left+b.width/2,y:b.top-a.top+b.height/2};};
-  const between=(a,b,t)=>a+(b-a)*t;
-  const ease=x=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
-  const parkFront=new Image();parkFront.src='assets/skins/park-meteor.jpg';
-  let drain=null,stomp=null,fxKey=0,parkToken=0,crackUntil=-1,crackBattle=-1,flatTarget=null,flatUnitId=null,flatUntil=-1,flatBattle=-1;
-  function shake(){const field=document.getElementById('battle-screen');if(!field)return;field.classList.remove('finisher-shake');void field.offsetWidth;field.classList.add('finisher-shake');setTimeout(()=>field.classList.remove('finisher-shake'),800);}
-  function cracks(target){const field=document.getElementById('battle-screen');if(!field||!target)return;
-    field.querySelector('.fractured-screen')?.remove();const p=pos(target,field),cx=p.x/field.clientWidth*1000,cy=p.y/field.clientHeight*600;
-    const rays=[[-80,-80],[310,-60],[760,-30],[1080,90],[1120,450],[850,680],[250,700],[-70,570]];
-    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 1000 600');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('class','fractured-screen');svg.setAttribute('aria-hidden','true');
-    rays.forEach(([x,y],i)=>{const dx=x-cx,dy=y-cy,curve=i%2?1:-1;
-      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-      const x1=cx+dx*.29,y1=cy+dy*.26,x2=cx+dx*.56+curve*17,y2=cy+dy*.54-curve*17;
-      path.setAttribute('d',`M ${cx} ${cy} L ${x1} ${y1} L ${x2} ${y2} L ${x} ${y}`);svg.append(path);
-      const branch=document.createElementNS('http://www.w3.org/2000/svg','path');branch.setAttribute('class','branch');branch.setAttribute('d',`M ${x2} ${y2} L ${x2+dy*.09} ${y2-dx*.09} L ${x2+dy*.16} ${y2-dx*.14}`);svg.append(branch);
-    });field.append(svg);crackUntil=(typeof currentTurnNumber==='number'?currentTurnNumber:0)+1;crackBattle=typeof battleGeneration==='number'?battleGeneration:0;}
-  function updateAppearance(){if(!myTeam||!enemyTeam)return;const field=document.getElementById('battle-screen');if(!field)return;
-    if(field.querySelector('.fractured-screen')&&(battleGeneration!==crackBattle||currentTurnNumber>crackUntil))field.querySelector('.fractured-screen').remove();
-    for(const own of [true,false]){
-      const el=sprite(own),unit=mon(own);if(!el||!unit)continue;
-      const bae=hasSkin(own,'bae','bloodmoon'),park=hasSkin(own,'park','meteor');
-      const flat=el===flatTarget&&battleGeneration===flatBattle&&currentTurnNumber<=flatUntil&&unit.id===flatUnitId&&!unit.fainted;
-      const size=bae?Math.min(2.45,1+Math.max(0,unit.stages?.atk||0)*.48):1;
-      el.classList.toggle('stomp-squashed',flat);el.style.transformOrigin=bae||flat?'50% 100%':'';
-      el.style.scale=flat?`${size} ${size*.27}`:bae?String(size):'';
-      const image=el.querySelector('img.champion-art');if(image)image.style.filter=park?`grayscale(${Math.min(1,(unit.stages?.def||0)*.23)}) contrast(${1+Math.min(.6,(unit.stages?.def||0)*.10)}) brightness(1.05)`:'';
-      let plate=el.querySelector('.metal-plating');const stage=park?Math.max(0,unit.stages?.def||0):0;
-      if(stage>0){if(!plate){plate=document.createElement('span');plate.className='metal-plating';el.append(plate);}plate.style.opacity=String(Math.min(.86,.24+stage*.12));}
-      else plate?.remove();
-    }
-  }
-  function overlay(kind,from,to){const field=document.getElementById('battle-screen');if(!field||!from||!to||matchMedia('(prefers-reduced-motion:reduce)').matches)return;
-    let canvas=field.querySelector('.finisher-extra');if(!canvas){canvas=document.createElement('canvas');canvas.className='finisher-extra';canvas.setAttribute('aria-hidden','true');field.append(canvas);}
-    const id=++fxKey,w=field.clientWidth,h=field.clientHeight,d=Math.min(2,devicePixelRatio||1);canvas.width=w*d;canvas.height=h*d;const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(d,0,0,d,0,0);
-    const a=pos(from,field),b=pos(to,field),start=performance.now(),length=kind==='stomp'?2450:1700;
-    if(kind==='stomp'){from.classList.add('stomp-leap');setTimeout(()=>from.classList.remove('stomp-leap'),length+40);}
-    function draw(now){if(id!==fxKey||!canvas.isConnected)return;const t=Math.min(1,(now-start)/length);ctx.clearRect(0,0,w,h);
-      if(kind==='wave'){
-        const dx=b.x-a.x,dy=b.y-a.y,distance=Math.max(1,Math.hypot(dx,dy));
-        const travel=distance*Math.min(1,t*1.24),rise=Math.min(h*.59,205)*(0.70+Math.min(1,t)*.30);
-        const angle=Math.atan2(dy,dx);
-        ctx.save();ctx.translate(a.x,a.y);ctx.rotate(angle);
-        const shadow=ctx.createLinearGradient(0,0,0,rise*.8);shadow.addColorStop(0,'#02030aaa');shadow.addColorStop(1,'#08020c11');
-        ctx.fillStyle=shadow;ctx.beginPath();ctx.ellipse(travel*.56,rise*.65,Math.max(10,travel*.57),rise*.26,0,0,Math.PI*2);ctx.fill();
-        for(let layer=0;layer<4;layer++){
-          const crest=rise*(1.18-layer*.18),front=travel-(3-layer)*13;
-          const colors=[['#080912','#09030f'],['#200b30','#361043'],['#4b1268','#7c2ca2'],['#b251db','#f3bbff']][layer];
-          const grad=ctx.createLinearGradient(0,-crest,0,crest*.45);grad.addColorStop(0,colors[1]);grad.addColorStop(.55,colors[0]);grad.addColorStop(1,'#160820e0');
-          ctx.save();ctx.globalAlpha=layer===3 ? 0.58 : 0.74;ctx.fillStyle=grad;ctx.shadowColor=layer===0?'#000015':'#b353df';ctx.shadowBlur=layer===0?28:20;
-          ctx.beginPath();ctx.moveTo(-28,crest*.65);
-          ctx.bezierCurveTo(front*.18,-crest*.2,front*.60,-crest*1.04,front,-crest*.78);
-          ctx.bezierCurveTo(front+crest*.24,-crest*.72,front+crest*.25,-crest*.02,front-crest*.05,crest*.28);
-          ctx.bezierCurveTo(front*.69,crest*.61,front*.28,crest*.55,-28,crest*.65);
-          ctx.closePath();ctx.fill();ctx.restore();
-        }
-        ctx.save();ctx.strokeStyle='#f6d6ff';ctx.lineWidth=4;ctx.globalAlpha=.68;
-        ctx.shadowColor='#d890f5';ctx.shadowBlur=18;ctx.beginPath();
-        ctx.moveTo(travel*.35,-rise*.51);ctx.bezierCurveTo(travel*.57,-rise*.89,travel*.87,-rise*1.10,travel,-rise*.75);
-        ctx.bezierCurveTo(travel+rise*.17,-rise*.58,travel+rise*.11,-rise*.24,travel-rise*.04,-rise*.10);ctx.stroke();ctx.restore();
-        for(let i=0;i<33;i++){
-          const phase=i*2.399,flow=Math.max(0,travel-(i%11)*13);
-          const x=flow+Math.cos(phase)*((i%4)*12),y=-rise*.65+Math.sin(phase)*24;
-          ctx.globalAlpha=.26+(i%4)*.15;ctx.fillStyle=i%5?'#e3a3ff':'#080611';
-          ctx.beginPath();ctx.arc(x,y,2+i%4*2,0,Math.PI*2);ctx.fill();
-        }
-        ctx.restore();ctx.globalAlpha=1;
-      }else{
-        const top=Math.max(18,b.y-h*.35);
-        const travel=ease(t/.26),jump=ease((t-.26)/.20),charge=ease((t-.46)/.18),returning=ease((t-.76)/.24);
-        let x=between(a.x,b.x,travel),y=between(a.y,top,travel),size=46;
-        if(t>.26&&t<=.46){x=b.x;y=top-54*Math.sin(Math.PI*jump);size=46+18*jump;}
-        if(t>.46&&t<=.76){x=b.x;y=top;size=64+44*charge;}
-        if(t>.76){x=between(b.x,a.x,returning);y=between(top,a.y,returning)-30*Math.sin(Math.PI*returning);size=108-62*returning;}
-        const sky=ctx.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#060d20f0');sky.addColorStop(1,'#25344cd6');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
-        ctx.fillStyle='#e8f3ff';for(let i=0;i<22;i++)ctx.fillRect((i*109)%w,(i*i*53)%h,1+i%2,1+i%2);
-        ctx.save();ctx.shadowColor='#f6be84';ctx.shadowBlur=22;
-        if(parkFront.complete&&parkFront.naturalWidth)ctx.drawImage(parkFront,x-size/2,y-size/2,size,size);
-        else{ctx.fillStyle='#dbeafe';ctx.font='900 19px system-ui';ctx.textAlign='center';ctx.fillText('박성원',x,y);}
-        ctx.restore();
-        if(t>.55&&t<.89){const stretch=ease((t-.55)/.19),fromY=top+size*.22,reach=Math.max(0,(b.y-fromY)*stretch);
-          for(const dir of [-1,1]){const legX=b.x+dir*28-11;
-            ctx.save();ctx.fillStyle='#3b475a';ctx.shadowColor='#ff9d5a';ctx.shadowBlur=26;
-            ctx.fillRect(legX,fromY,22,reach);ctx.fillStyle='#bac5d4';ctx.fillRect(legX-3,fromY+reach-10,28,12);ctx.restore();}}
-        if(t>.74&&t<.89){const burst=(t-.74)/.15;
-          ctx.save();ctx.translate(b.x,b.y);ctx.scale(1,.4);ctx.strokeStyle='#ffbc79';ctx.lineWidth=12;ctx.shadowColor='#ff8b3d';ctx.shadowBlur=25;
-          ctx.beginPath();ctx.arc(0,0,w*.33*burst,0,Math.PI*2);ctx.stroke();ctx.restore();}
-      }
-      if(t<1)requestAnimationFrame(draw);else if(id===fxKey)canvas.remove();}
-    requestAnimationFrame(draw);
-  }
-  function cosmeticLabel(events){return events.map(ev=>{
-    if(!ev?.msg||!ev.msg.includes('메테오 스트라이크'))return ev;
-    const side=ev.type==='move_announce'?ev.side:ev.actorSide;if(!side)return ev;
-    const own=actorOwn(side);if(!hasSkin(own,'park','meteor'))return ev;
-    return {...ev,msg:ev.msg.replaceAll('메테오 스트라이크','점프 내려찍기')};
-  });}
-  function install(){
-    if(typeof window.renderBattleField==='function'){const old=window.renderBattleField;window.renderBattleField=function(...args){const result=old.apply(this,args);updateAppearance();return result;};}
-    if(typeof window.startBattleScreen==='function'){const old=window.startBattleScreen;window.startBattleScreen=function(...args){document.querySelector('.fractured-screen')?.remove();document.querySelector('.finisher-extra')?.remove();for(const el of [sprite(true),sprite(false)])el?.classList.remove('stomp-leap','stomp-squashed');fxKey++;crackUntil=-1;flatUntil=-1;flatTarget=null;drain=null;stomp=null;const result=old.apply(this,args);updateAppearance();return result;};}
-    if(typeof window.openMoveMenu==='function'){const old=window.openMoveMenu;window.openMoveMenu=function(...args){const result=old.apply(this,args);if(hasSkin(true,'park','meteor'))for(let i=0;i<4;i++){const label=document.getElementById(`m${i}-name`);if(label?.textContent==='메테오 스트라이크')label.textContent='점프 내려찍기';}return result;};}
-    if(typeof window.playTurnEvents==='function'){const old=window.playTurnEvents;window.playTurnEvents=function(events){return old.call(this,Array.isArray(events)?cosmeticLabel(events):events);};}
-    if(typeof window.triggerSkillVisualAndAudio==='function'){const old=window.triggerSkillVisualAndAudio;window.triggerSkillVisualAndAudio=function(name,side,...args){const own=actorOwn(side),park=name==='메테오 스트라이크'&&hasSkin(own,'park','meteor');const field=document.getElementById('battle-screen');const ticket=++parkToken;if(field)field.dataset.parkStomp=park?'yes':'off';
-      const result=old.call(this,name,side,...args);
-      if(name==='드레인펀치'&&hasSkin(own,'bae','bloodmoon'))drain={side,at:Date.now(),target:sprite(!own)};
-      if(name==='오물폭탄'&&hasSkin(own,'oh','abyss'))overlay('wave',sprite(own),sprite(!own));
-      if(park){stomp={side,at:Date.now(),target:sprite(!own),targetId:mon(!own)?.id};overlay('stomp',sprite(own),sprite(!own));setTimeout(()=>{if(ticket===parkToken&&field)field.dataset.parkStomp='off';},3400);}
-      return result;};}
-    if(typeof window.playSkillCinematicImpactFX==='function'){const old=window.playSkillCinematicImpactFX;window.playSkillCinematicImpactFX=function(name,point){const result=old.call(this,name,point);
-      if(name==='드레인펀치'&&drain&&Date.now()-drain.at<8000){shake();cracks(drain.target);drain=null;}
-      if(name==='메테오 스트라이크'&&stomp&&Date.now()-stomp.at<8000){flatTarget=stomp.target;flatUnitId=stomp.targetId;flatBattle=battleGeneration;flatUntil=currentTurnNumber+1;const field=document.getElementById('battle-screen');if(field)field.dataset.parkStomp='impact';shake();updateAppearance();stomp=null;}
-      return result;};}
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+'use strict';
+const css=document.createElement('style');css.textContent=`
+.finisher-extra{position:absolute;inset:0;width:100%;height:100%;z-index:54;pointer-events:none}
+.stomp-leap .champion-art,.stomp-leap .sprite-label{opacity:0!important}
+#battle-screen[data-park-stomp="yes"] .unified-skin-fx,#battle-screen[data-park-stomp="impact"] .unified-skin-fx,#battle-screen[data-park-stomp="yes"] .remote-skin-fx,#battle-screen[data-park-stomp="impact"] .remote-skin-fx,#battle-screen[data-park-stomp="yes"] .skin-cinematic,#battle-screen[data-park-stomp="impact"] .skin-cinematic{display:none!important}
+#battle-screen[data-park-stomp="yes"] #fx-canvas{opacity:0}
+.stomp-squashed{transition:scale .2s!important;transform-origin:50% 100%!important}
+.battle-screen.finisher-shake{animation:finisherShake .76s ease-out!important}
+@keyframes finisherShake{0%,100%{transform:translate(0)}12%{transform:translate(19px,-11px) rotate(1deg)}25%{transform:translate(-20px,12px) rotate(-1deg)}40%{transform:translate(17px,9px)}60%{transform:translate(-15px,-10px)}80%{transform:translate(7px,4px)}}
+.fractured-screen{position:absolute;inset:0;z-index:36;width:100%;height:100%;pointer-events:none;animation:fracturePulse 1.4s ease-in-out infinite}
+.fractured-screen path{fill:none;stroke:#e8f6ff;stroke-width:2.7;filter:drop-shadow(1px 2px 2px #111827) drop-shadow(0 0 4px #fff)}
+@keyframes fracturePulse{50%{opacity:.78}}
+.metal-plating{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent,#ffffff8a 46%,#4f6a8766 52%,transparent);mix-blend-mode:screen;animation:steelShine 2.6s ease-in-out infinite}
+@keyframes steelShine{50%{opacity:.4}}
+#battle-screen.sludge-wobble{animation:sludgeScreen 1.3s ease-in-out infinite}
+#battle-screen.sludge-wobble .char-sprite{animation:sludgeSprite 1.15s ease-in-out infinite alternate}
+@keyframes sludgeScreen{0%,100%{border-radius:12px;filter:none}33%{border-radius:18px 9px 19px 8px;filter:hue-rotate(5deg)}67%{border-radius:8px 19px 9px 18px;filter:hue-rotate(-5deg)}}
+@keyframes sludgeSprite{0%{filter:drop-shadow(0 0 9px #b44ce1);scale:1 .97}100%{filter:drop-shadow(0 0 22px #7e22ce);scale:1.04 1.02}}
+.sludge-hit{position:absolute;z-index:56;width:34px;height:34px;border:5px solid #d99aff;border-radius:50%;box-shadow:0 0 22px #591470;pointer-events:none;animation:sludgeHit .48s ease-out both}
+@keyframes sludgeHit{from{opacity:1;transform:translate(-50%,-50%) scale(.25)}to{opacity:0;transform:translate(-50%,-50%) scale(4.5)}}
+.jackpot-wealth{position:absolute;inset:-25px;z-index:5;pointer-events:none;border-radius:50%;box-shadow:0 0 24px #facc15,0 0 45px #f59e0b,inset 0 0 17px #fef08a;animation:wealthGlow 1.6s ease-in-out infinite}
+@keyframes wealthGlow{50%{filter:brightness(1.5);transform:scale(1.08)}}
+.jackpot-wealth span{position:absolute;top:-42%;left:var(--x);font-size:var(--sz);animation:wealthFall var(--dur) linear infinite;animation-delay:var(--delay);filter:drop-shadow(0 0 6px #ffe27c)}
+@keyframes wealthFall{to{transform:translate(var(--drift),235px) rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.battle-screen.finisher-shake,.fractured-screen,#battle-screen.sludge-wobble,#battle-screen.sludge-wobble .char-sprite,.jackpot-wealth,.jackpot-wealth span{animation:none!important}}
+`;document.head.append(css);
+const own=side=>(isHost||isSpectator)?side==='p1':side==='p2';
+const sprite=me=>document.getElementById(me?'player-sprite':'enemy-sprite');
+const mon=me=>me?myTeam?.lead:enemyTeam?.lead;
+const has=(me,id,skin)=>mon(me)?.id===id&&sprite(me)?.dataset.skin===skin;
+const parkSaved=()=>{try{const s=JSON.parse(localStorage.getItem('ochams-skins-v1')||'{}');return s.equipped?.park==='meteor'&&s.unlocked?.includes('meteor');}catch{return false;}};
+const ohSaved=()=>{try{const s=JSON.parse(localStorage.getItem('ochams-skins-v1')||'{}');return s.equipped?.oh==='abyss'&&s.unlocked?.includes('abyss');}catch{return false;}};
+const at=(el,field)=>{const a=field.getBoundingClientRect(),b=el.getBoundingClientRect();return{x:b.left-a.left+b.width/2,y:b.top-a.top+b.height/2};};
+const mix=(a,b,t)=>a+(b-a)*t,ease=x=>1-(1-Math.max(0,Math.min(1,x)))**3;
+const front=new Image();front.src='assets/skins/park-meteor.jpg';
+let fxKey=0,token=0,drain=null,stomp=null,sludge=null,crackUntil=-1,crackBattle=-1,flatTarget=null,flatId=null,flatUntil=-1,flatBattle=-1,wobbleUntil=-1,wobbleBattle=-1;
+const coins=[0,0],leaders=[null,null];let moneyBattle=-1;
+function shake(){const f=document.getElementById('battle-screen');if(!f)return;f.classList.remove('finisher-shake');void f.offsetWidth;f.classList.add('finisher-shake');setTimeout(()=>f.classList.remove('finisher-shake'),800);}
+function cracks(target){const f=document.getElementById('battle-screen');if(!f||!target)return;f.querySelector('.fractured-screen')?.remove();const p=at(target,f),x=p.x/f.clientWidth*1000,y=p.y/f.clientHeight*600;
+const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 1000 600');s.setAttribute('preserveAspectRatio','none');s.setAttribute('class','fractured-screen');
+for(const [ex,ey] of [[-50,-40],[300,-30],[760,-20],[1050,70],[1050,540],[760,650],[240,650],[-40,500]]){const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',`M ${x} ${y} L ${mix(x,ex,.29)} ${mix(y,ey,.26)} L ${mix(x,ex,.56)+17} ${mix(y,ey,.54)-17} L ${ex} ${ey}`);s.append(p);}f.append(s);crackUntil=currentTurnNumber+1;crackBattle=battleGeneration;}
+function appearance(){const f=document.getElementById('battle-screen');if(!f||!myTeam||!enemyTeam)return;
+if(battleGeneration!==crackBattle||currentTurnNumber>crackUntil)f.querySelector('.fractured-screen')?.remove();
+f.classList.toggle('sludge-wobble',wobbleBattle===battleGeneration&&currentTurnNumber<=wobbleUntil);
+if(moneyBattle!==battleGeneration){coins.fill(0);leaders.fill(null);moneyBattle=battleGeneration;}
+for(const me of [true,false]){const e=sprite(me),m=mon(me);if(!e||!m)continue;const index=me?0:1;if(leaders[index]!==m.id){coins[index]=0;leaders[index]=m.id;}
+const bae=has(me,'bae','bloodmoon'),park=has(me,'park','meteor'),flat=e===flatTarget&&flatBattle===battleGeneration&&currentTurnNumber<=flatUntil&&m.id===flatId&&!m.fainted;
+const scale=bae?Math.min(2.45,1+Math.max(0,m.stages?.atk||0)*.48):1;e.classList.toggle('stomp-squashed',flat);e.style.transformOrigin=bae||flat?'50% 100%':'';e.style.scale=flat?`${scale} ${scale*.27}`:bae?String(scale):'';
+const img=e.querySelector('img.champion-art');if(img)img.style.filter=park?`grayscale(${Math.min(1,(m.stages?.def||0)*.23)}) contrast(${1+Math.min(.6,(m.stages?.def||0)*.10)}) brightness(1.05)`:'';
+let plate=e.querySelector('.metal-plating');const stage=park?Math.max(0,m.stages?.def||0):0;if(stage){if(!plate){plate=document.createElement('span');plate.className='metal-plating';e.append(plate);}plate.style.opacity=Math.min(.86,.24+stage*.12);}else plate?.remove();
+let wealth=e.querySelector('.jackpot-wealth');if(!has(me,'choi','jackpot')||!coins[index]||m.fainted){wealth?.remove();continue;}const level=Math.min(3,coins[index]);if(!wealth){wealth=document.createElement('div');wealth.className='jackpot-wealth';wealth.setAttribute('aria-hidden','true');e.append(wealth);}if(Number(wealth.dataset.level)===level)continue;wealth.dataset.level=level;wealth.replaceChildren();for(let i=0;i<level*8;i++){const bit=document.createElement('span');bit.textContent=i%9===0?'💎':i%3?'💰':'🪙';bit.style.setProperty('--x',`${i*47%140-18}%`);bit.style.setProperty('--sz',`${12+level*3}px`);bit.style.setProperty('--dur',`${1.6+(i%5)*.32}s`);bit.style.setProperty('--delay',`${-(i%7)*.27}s`);bit.style.setProperty('--drift',`${(i%5-2)*16}px`);wealth.append(bit);}
+}}
+function canvasFX(kind,from,to){const f=document.getElementById('battle-screen');if(!f||!from||!to||matchMedia('(prefers-reduced-motion:reduce)').matches)return;let c=f.querySelector('.finisher-extra');if(!c){c=document.createElement('canvas');c.className='finisher-extra';f.append(c);}const id=++fxKey,w=f.clientWidth,h=f.clientHeight,d=Math.min(2,devicePixelRatio||1);c.width=w*d;c.height=h*d;const ctx=c.getContext('2d');if(!ctx)return;ctx.setTransform(d,0,0,d,0,0);const a=at(from,f),b=at(to,f),start=performance.now(),length=kind==='stomp'?2450:1700;
+if(kind==='stomp'){from.classList.add('stomp-leap');setTimeout(()=>from.classList.remove('stomp-leap'),length+50);}
+function draw(now){if(id!==fxKey||!c.isConnected)return;const t=Math.min(1,(now-start)/length);ctx.clearRect(0,0,w,h);
+if(kind==='wave'){const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),advance=dist*Math.min(1,t*1.2),rise=Math.min(205,h*.58);ctx.save();ctx.translate(a.x,a.y);ctx.rotate(Math.atan2(dy,dx));for(let layer=0;layer<4;layer++){const crest=rise*(1.2-layer*.18),x=advance-layer*14,g=ctx.createLinearGradient(0,-crest,0,crest*.65);g.addColorStop(0,['#02030a','#200b30','#7c2ca2','#d695f2'][layer]);g.addColorStop(1,'#07040ee6');ctx.fillStyle=g;ctx.globalAlpha=.7;ctx.shadowColor=layer?'#a73bea':'#000';ctx.shadowBlur=22;ctx.beginPath();ctx.moveTo(-35,crest*.7);ctx.bezierCurveTo(x*.2,-crest*.2,x*.63,-crest*1.04,x,-crest*.78);ctx.bezierCurveTo(x+crest*.28,-crest*.65,x+crest*.15,crest*.19,x-crest*.04,crest*.33);ctx.lineTo(-35,crest*.7);ctx.fill();}for(let i=0;i<34;i++){ctx.globalAlpha=.4;ctx.fillStyle=i%4?'#e9afff':'#0b0712';ctx.beginPath();ctx.arc(advance-(i%10)*12+Math.sin(i*2.4)*18,-rise*.7+Math.cos(i*3)*26,2+i%5,0,7);ctx.fill();}ctx.restore();}
+else{const top=Math.max(18,b.y-h*.35),travel=ease(t/.26),jump=ease((t-.26)/.2),charge=ease((t-.46)/.18),back=ease((t-.76)/.24);let x=mix(a.x,b.x,travel),y=mix(a.y,top,travel),sz=46;if(t>.26&&t<=.46){x=b.x;y=top-54*Math.sin(Math.PI*jump);sz=46+18*jump;}if(t>.46&&t<=.76){x=b.x;y=top;sz=64+44*charge;}if(t>.76){x=mix(b.x,a.x,back);y=mix(top,a.y,back)-30*Math.sin(Math.PI*back);sz=108-62*back;}const sky=ctx.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#060d20f0');sky.addColorStop(1,'#25344cd6');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);ctx.save();ctx.shadowColor='#f6be84';ctx.shadowBlur=22;if(front.complete&&front.naturalWidth)ctx.drawImage(front,x-sz/2,y-sz/2,sz,sz);else{ctx.fillStyle='#fff';ctx.font='900 19px system-ui';ctx.textAlign='center';ctx.fillText('박성원',x,y);}ctx.restore();if(t>.55&&t<.89){const reach=Math.max(0,(b.y-top-sz*.22)*ease((t-.55)/.19));for(const dir of [-1,1]){const legX=b.x+dir*28-11;ctx.save();ctx.fillStyle='#3b475a';ctx.shadowColor='#ff9d5a';ctx.shadowBlur=26;ctx.fillRect(legX,top+sz*.22,22,reach);ctx.fillStyle='#bac5d4';ctx.fillRect(legX-3,top+sz*.22+reach-10,28,12);ctx.restore();}}if(t>.74&&t<.89){ctx.save();ctx.translate(b.x,b.y);ctx.scale(1,.4);ctx.strokeStyle='#ffbc79';ctx.lineWidth=12;ctx.shadowColor='#ff8b3d';ctx.shadowBlur=25;ctx.beginPath();ctx.arc(0,0,w*.33*(t-.74)/.15,0,7);ctx.stroke();ctx.restore();}}
+if(t<1)requestAnimationFrame(draw);else if(id===fxKey)c.remove();}requestAnimationFrame(draw);}
+function sludgeHits(target){const f=document.getElementById('battle-screen');if(!f||!target)return;const p=at(target,f);for(let i=0;i<4;i++)setTimeout(()=>{if(!f.isConnected||!battleActive)return;const dot=document.createElement('span');dot.className='sludge-hit';dot.style.left=`${p.x+(i%2?17:-17)}px`;dot.style.top=`${p.y+(i%2?-12:12)}px`;f.append(dot);setTimeout(()=>dot.remove(),550);if(i&&typeof SFX?.hit==='function')SFX.hit();},i*130);}
+function label(root,base,newName){if(!root)return;for(const el of root.querySelectorAll('b,span'))if(!el.childElementCount&&el.textContent?.includes(base))el.textContent=el.textContent.replaceAll(base,newName);}
+function changeEvents(events){return events.map(ev=>{if(!ev?.msg)return ev;const side=ev.type==='move_announce'?ev.side:ev.actorSide;if(!side)return ev;let text=ev.msg;if(has(own(side),'park','meteor'))text=text.replaceAll('메테오 스트라이크','점프 내려찍기');if(has(own(side),'oh','abyss'))text=text.replaceAll('오물폭탄','오물웨이브');return text===ev.msg?ev:{...ev,msg:text};});}
+function saved(id,skin){try{const s=JSON.parse(localStorage.getItem('ochams-skins-v1')||'{}');return s.equipped?.[id]===skin&&s.unlocked?.includes(skin);}catch{return false;}}
+function install(){
+if(typeof window.renderBattleField==='function'){const old=window.renderBattleField;window.renderBattleField=function(...args){const result=old.apply(this,args);appearance();return result;};}
+if(typeof window.startBattleScreen==='function'){const old=window.startBattleScreen;window.startBattleScreen=function(...args){fxKey++;token++;drain=stomp=sludge=null;flatTarget=null;flatUntil=-1;wobbleUntil=-1;coins.fill(0);leaders.fill(null);document.querySelector('.fractured-screen')?.remove();document.querySelector('.finisher-extra')?.remove();for(const el of [sprite(true),sprite(false)])el?.classList.remove('stomp-leap','stomp-squashed');const result=old.apply(this,args);appearance();return result;};}
+if(typeof window.openMoveMenu==='function'){const old=window.openMoveMenu;window.openMoveMenu=function(...args){const result=old.apply(this,args);for(let i=0;i<4;i++){const e=document.getElementById(`m${i}-name`);if(has(true,'park','meteor')&&e?.textContent==='메테오 스트라이크')e.textContent='점프 내려찍기';if(has(true,'oh','abyss')&&e?.textContent==='오물폭탄')e.textContent='오물웨이브';}return result;};}
+if(typeof window.showCharDetail==='function'){const old=window.showCharDetail;window.showCharDetail=function(id,...args){const result=old.call(this,id,...args);if(id==='park'&&parkSaved())label(document.getElementById('d-moves'),'메테오 스트라이크','점프 내려찍기');if(id==='oh'&&ohSaved())label(document.getElementById('d-moves'),'오물폭탄','오물웨이브');return result;};}
+if(typeof window.renderDetailModalContent==='function'){const old=window.renderDetailModalContent;window.renderDetailModalContent=function(...args){const result=old.apply(this,args),sections=document.querySelectorAll('#modal-body-content .status-columns > div');for(const me of [true,false]){const root=sections[me?0:1];if(has(me,'park','meteor'))label(root,'메테오 스트라이크','점프 내려찍기');if(has(me,'oh','abyss'))label(root,'오물폭탄','오물웨이브');}return result;};}
+if(typeof window.playTurnEvents==='function'){const old=window.playTurnEvents;window.playTurnEvents=function(events){return old.call(this,Array.isArray(events)?changeEvents(events):events);};}
+if(typeof window.triggerSkillVisualAndAudio==='function'){const old=window.triggerSkillVisualAndAudio;window.triggerSkillVisualAndAudio=function(name,side,...args){const me=own(side),park=name==='메테오 스트라이크'&&has(me,'park','meteor'),oh=name==='오물폭탄'&&has(me,'oh','abyss'),f=document.getElementById('battle-screen'),ticket=++token;if(f)f.dataset.parkStomp=park?'yes':'off';const base=window.playSkillCinematicFX;if(park&&typeof base==='function')window.playSkillCinematicFX=function(n,...rest){if(n==='메테오 스트라이크')return;return base.call(this,n,...rest);};let result;try{result=old.call(this,name,side,...args);}finally{if(park&&typeof base==='function')window.playSkillCinematicFX=base;}if(name==='드레인펀치'&&has(me,'bae','bloodmoon'))drain={at:Date.now(),target:sprite(!me)};if(oh){sludge={at:Date.now(),target:sprite(!me)};canvasFX('wave',sprite(me),sprite(!me));}if(park){stomp={at:Date.now(),target:sprite(!me),id:mon(!me)?.id};canvasFX('stomp',sprite(me),sprite(!me));setTimeout(()=>{if(ticket===token&&f)f.dataset.parkStomp='off';},3400);}if(name==='수능 가챠'&&args[1]?.isGachaWin&&has(me,'choi','jackpot')){coins[me?0:1]++;appearance();}return result;};}
+if(typeof window.playSkillCinematicImpactFX==='function'){const old=window.playSkillCinematicImpactFX;window.playSkillCinematicImpactFX=function(name,point){if(name==='메테오 스트라이크'&&stomp&&Date.now()-stomp.at<8000){flatTarget=stomp.target;flatId=stomp.id;flatBattle=battleGeneration;flatUntil=currentTurnNumber+1;const f=document.getElementById('battle-screen');if(f)f.dataset.parkStomp='impact';shake();appearance();stomp=null;return;}const result=old.call(this,name,point);if(name==='드레인펀치'&&drain&&Date.now()-drain.at<8000){shake();cracks(drain.target);drain=null;}if(name==='오물폭탄'&&sludge&&Date.now()-sludge.at<8000){wobbleBattle=battleGeneration;wobbleUntil=currentTurnNumber+1;sludgeHits(sludge.target);appearance();sludge=null;}return result;};}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
