@@ -176,11 +176,11 @@ const HeldItemRules = Object.freeze({
   const arena=document.getElementById('battle-screen');if(!arena)return;
   const style=document.createElement('style');style.textContent=`
     .boingo-chaos-scene{position:absolute;inset:0;z-index:47;pointer-events:none;overflow:hidden;background:radial-gradient(circle at center,#02020acc,transparent 75%)}
-    .boingo-chaos-front{position:absolute;left:2%;top:5%;width:clamp(90px,26%,175px);height:74%;object-fit:contain;z-index:3;filter:drop-shadow(0 0 20px #ec4899);animation:chaosPortrait 2.05s ease-out both}
-    .boingo-chaos-hole{position:absolute;left:50%;top:50%;width:min(48%,270px);aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,#000 0 31%,#140627 38%,#7c3aed 48%,#ec4899 56%,transparent 73%);box-shadow:0 0 28px #a855f7,0 0 70px #6d28d9;animation:chaosHole 2.05s ease-in-out both}
+    .boingo-chaos-front{position:absolute;left:2%;top:5%;width:clamp(90px,26%,175px);height:74%;object-fit:contain;z-index:3;filter:drop-shadow(0 0 20px #ec4899);animation:chaosPortrait 3.1s ease-out both}
+    .boingo-chaos-hole{position:absolute;left:50%;top:50%;width:min(48%,270px);aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,#000 0 31%,#140627 38%,#7c3aed 48%,#ec4899 56%,transparent 73%);box-shadow:0 0 28px #a855f7,0 0 70px #6d28d9;animation:chaosHole 3.1s ease-in-out both}
     .boingo-chaos-hole::after{content:'';position:absolute;inset:-18%;border-radius:50%;background:conic-gradient(from 45deg,transparent,#f9a8d499,transparent,#8b5cf6aa,transparent);mask:radial-gradient(circle,transparent 0 38%,#000 48% 68%,transparent 78%);animation:chaosSpin .6s linear infinite}
-    .boingo-chaos-suit{position:absolute;z-index:3;left:50%;top:50%;font:900 30px Georgia,serif;text-shadow:0 0 14px #fff;color:#f9a8d4;animation:chaosSuit 1.55s ease-in-out infinite;transform:translate(var(--x),var(--y))}
-    .boingo-chaos-copy{position:absolute;z-index:4;display:grid;place-items:center;color:#fff;font:900 12px system-ui;filter:drop-shadow(0 8px 13px #000);animation:chaosPull 2.05s ease-in-out both}
+    .boingo-chaos-suit{position:absolute;z-index:3;left:50%;top:50%;font:900 30px Georgia,serif;text-shadow:0 0 14px #fff;color:#f9a8d4;animation:chaosSuit 2.3s ease-in-out infinite;transform:translate(var(--x),var(--y))}
+    .boingo-chaos-copy{position:absolute;z-index:4;display:grid;place-items:center;color:#fff;font:900 12px system-ui;filter:drop-shadow(0 8px 13px #000);animation:chaosPull 3.1s ease-in-out both}
     .boingo-chaos-copy img{width:100%;height:100%;object-fit:contain}
     .boingo-chaos-hidden{opacity:0!important}
     @keyframes chaosPortrait{0%{opacity:0;transform:translateX(-28px) scale(.8)}20%,76%{opacity:1;transform:none}100%{opacity:0;transform:translateX(-8px)}}
@@ -206,14 +206,14 @@ const HeldItemRules = Object.freeze({
       overlay.append(copy);original.classList.add('boingo-chaos-hidden');hidden.push(original);
     }}
     arena.append(overlay);active={overlay,hidden};
-    playTone(98,'sine',1.5,.16,34);for(let i=0;i<3;i++)playNoise(.43,.06,{filter:'bandpass',cutoff:300+i*170,delay:i*.35});
-    setTimeout(()=>{if(active?.overlay===overlay)clean();},2100);
+    playTone(98,'sine',2.4,.16,34);for(let i=0;i<3;i++)playNoise(.65,.06,{filter:'bandpass',cutoff:300+i*170,delay:i*.55});
+    setTimeout(()=>{if(active?.overlay===overlay)clean();},3200);
   }
   const old=window.triggerSkillVisualAndAudio;
   if(typeof old==='function')window.triggerSkillVisualAndAudio=function(name,side,...args){const me=(isHost||isSpectator)?side==='p1':side==='p2',mon=me?myTeam?.lead:enemyTeam?.lead;
     const result=old.call(this,name,side,...args);if(mon?.id==='boingo'&&name==='익스트림 카오스')try{show();}catch(error){console.warn('익스트림 카오스 연출 오류',error);clean();}return result;};
   const duration=window.skillCinematicDuration;
-  if(typeof duration==='function')window.skillCinematicDuration=function(name){const base=duration.apply(this,arguments);return name==='익스트림 카오스'?Math.max(Number(base)||0,2100):base;};
+  if(typeof duration==='function')window.skillCinematicDuration=function(name){const base=duration.apply(this,arguments);return name==='익스트림 카오스'?Math.max(Number(base)||0,3200):base;};
   for(const method of ['startBattleScreen','restartToLobby']){const previous=window[method];if(typeof previous==='function')window[method]=function(...args){clean();return previous.apply(this,args);};}
 })();
 
