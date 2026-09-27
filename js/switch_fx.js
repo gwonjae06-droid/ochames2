@@ -105,7 +105,7 @@
   };
 })();
 
-// MP3 title music uses the existing music volume setting and stops for battles.
+// Title music and low-frequency-reactive lobby visuals. No combat changes.
 (() => {
   'use strict';
   const theme=new Audio('assets/audio/MAIN.mp3');
@@ -114,6 +114,52 @@
   let readyForSound=false;
   const visible=id=>{const el=document.getElementById(id);return !!el&&getComputedStyle(el).display!=='none';};
   const inBattle=()=>visible('battle-screen');
+  const lobby=document.getElementById('lobby-panel');
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const style=document.createElement('style');
+  style.textContent=`
+    .music-lobby{position:relative;isolation:isolate;overflow:hidden;--title-beat:0}
+    .music-lobby > :not(.title-rune){position:relative;z-index:1}
+    .music-lobby .title-rune{position:absolute;z-index:0;pointer-events:none;font:900 clamp(25px,5vw,54px) Georgia,serif;color:#9be5ff;opacity:calc(.06 + var(--title-beat)*.54);text-shadow:0 0 11px #38bdf8,0 0 28px #a855f7;transform:translateY(calc(var(--title-beat)*-11px)) scale(calc(1 + var(--title-beat)*.48));transition:opacity .12s linear,transform .12s linear}
+    .music-lobby::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 22% 28%,#38bdf833,transparent 36%),radial-gradient(circle at 83% 70%,#a855f733,transparent 38%);opacity:calc(.18 + var(--title-beat)*.68)}
+    body.title-theme-on .top-header h1{transform:translateY(calc(var(--title-beat)*-4px));text-shadow:0 0 16px #38bdf8,0 0 30px #a855f7;transition:transform .12s linear}
+    body.title-theme-on .music-lobby .status-badge{transform:translateY(calc(var(--title-beat)*-3px));transition:transform .12s linear}
+    .music-lobby button{transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;transform:translateY(calc(var(--title-beat)*-2px))}
+    @media(hover:hover){.music-lobby button:hover,body.title-theme-on .top-header button:hover{transform:translateY(-3px) scale(1.055);filter:brightness(1.14);box-shadow:0 8px 24px #38bdf855}}
+    .music-lobby button:focus-visible,body.title-theme-on .top-header button:focus-visible{transform:translateY(-3px) scale(1.055);outline:2px solid #a5f3fc;outline-offset:3px}
+    @media(prefers-reduced-motion:reduce){.music-lobby .title-rune,.music-lobby button,.music-lobby .status-badge,body.title-theme-on .top-header h1{transition:none!important;transform:none!important}.music-lobby button:hover,body.title-theme-on .top-header button:hover,.music-lobby button:focus-visible{transform:none!important}}
+  `;
+  document.head.append(style);
+  if(lobby){
+    lobby.classList.add('music-lobby');
+    const marks=['✦','◇','✧','☾','✦','✧','◇','✦','☾'];
+    marks.forEach((mark,i)=>{const rune=document.createElement('span');rune.className='title-rune';rune.textContent=mark;rune.setAttribute('aria-hidden','true');rune.style.left=`${[7,20,35,56,76,91,15,63,85][i]}%`;rune.style.top=`${[12,71,32,8,24,64,87,78,45][i]}%`;rune.style.color=i%2?'#c5a7ff':'#9be5ff';lobby.append(rune);});
+  }
+  let analyser=null,fft=null,frame=0,average=.06,pulse=0,lastBeat=0;
+  function wireAnalyser(){
+    if(analyser||reduced.matches)return;
+    try{const context=typeof initAudio==='function'?initAudio():null;if(!context)return;
+      const source=context.createMediaElementSource(theme);
+      analyser=context.createAnalyser();analyser.fftSize=1024;analyser.smoothingTimeConstant=.68;
+      source.connect(analyser);analyser.connect(context.destination);
+      fft=new Uint8Array(analyser.frequencyBinCount);
+    }catch(error){console.warn('타이틀 비트 분석을 사용할 수 없습니다.',error);}
+  }
+  function animate(now){
+    frame=0;
+    if(theme.paused||inBattle()||document.hidden||reduced.matches){document.body.classList.remove('title-theme-on');return;}
+    let bass=0;
+    if(analyser&&fft){analyser.getByteFrequencyData(fft);for(let i=1;i<=6;i++)bass+=fft[i];bass/=6*255;}
+    const beat=bass>.13&&bass>average*1.32&&now-lastBeat>190;
+    average=average*.98+bass*.02;
+    if(beat){lastBeat=now;pulse=1;}else pulse=Math.max(pulse*.87,Math.min(.7,bass*.75));
+    const level=pulse.toFixed(3);
+    if(lobby)lobby.style.setProperty('--title-beat',level);
+    document.body.style.setProperty('--title-beat',level);
+    frame=requestAnimationFrame(animate);
+  }
+  function startVisual(){if(!lobby||reduced.matches||theme.paused||inBattle()||frame)return;document.body.classList.add('title-theme-on');frame=requestAnimationFrame(animate);}
+  function stopVisual(){if(frame)cancelAnimationFrame(frame);frame=0;document.body.classList.remove('title-theme-on');pulse=0;if(lobby)lobby.style.setProperty('--title-beat','0');document.body.style.setProperty('--title-beat','0');}
   function volume(){
     try{const s=JSON.parse(localStorage.getItem('ochames2-audio-v2')||'{}');
       const value=Number(s.music);
@@ -123,9 +169,9 @@
   function playTitle(){
     if(inBattle()||document.hidden)return;
     volume();
-    theme.play().catch(()=>{});
+    theme.play().then(()=>{wireAnalyser();startVisual();}).catch(()=>{});
   }
-  function stopTitle(){theme.pause();}
+  function stopTitle(){theme.pause();stopVisual();}
   const start=window.startBattleScreen;
   if(typeof start==='function')window.startBattleScreen=function(...args){stopTitle();return start.apply(this,args);};
   const battleMusic=window.startBattleMusic;
@@ -135,6 +181,7 @@
   for(const type of ['pointerdown','keydown'])document.addEventListener(type,()=>{readyForSound=true;playTitle();},{passive:true});
   for(const type of ['input','change'])document.addEventListener(type,event=>{if(event.target?.closest?.('#audio-settings-modal'))volume();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTitle();else if(readyForSound)playTitle();});
+  reduced.addEventListener?.('change',()=>{if(reduced.matches)stopVisual();else startVisual();});
   theme.addEventListener('error',()=>console.warn('타이틀 음악 파일을 불러오지 못했습니다: assets/audio/MAIN.mp3'));
   playTitle();
 })();
