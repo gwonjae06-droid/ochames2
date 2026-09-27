@@ -81,3 +81,58 @@ function getNpcChoice(aiTeam, playerTeam, currentSandstorm = 0) {
 
   return { type: 'move', moveIndex: bestIdx };
 }
+
+// Temporary source-guarded patch for the original battle engine.
+(() => {
+  'use strict';
+  try {
+    const ability = POKEDEX.boingo.abilityDesc;
+    if (!ability.includes('최대 체력의 10%')) throw new Error('보인고 특성 설명이 예상과 다릅니다.');
+    let code = Function.prototype.toString.call(window.calculateTurnEvents);
+    for (const [before, after] of [
+      ['Math.floor(targetMon.maxHp * 0.10)', 'Math.floor(targetMon.maxHp * 0.07)'],
+      ['10%(-${fixedDmg})', '7%(-${fixedDmg})'],
+      ['activeMon.vulnerableTurns = 1;', 'activeMon.vulnerableTurns = 2;']
+    ]) {
+      if (code.split(before).length !== 2) throw new Error(`엔진 변경 지점을 찾지 못했습니다: ${before}`);
+      code = code.replace(before, after);
+    }
+    const revised = new Function(`return (${code})`)();
+    window.calculateTurnEvents = revised;
+    POKEDEX.boingo.abilityDesc = ability.replace('최대 체력의 10%', '최대 체력의 7%');
+  } catch (error) {
+    console.error('보인고 밸런스 패치 실패: 원본 엔진을 유지합니다.', error);
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const play = window.playTurnEvents;
+    if (typeof play === 'function') window.playTurnEvents = function(events) {
+      const visible = Array.isArray(events) ? events.map(event =>
+        ['status_force_random', 'status_force_random_trigger'].includes(event?.type)
+          ? {...event, type:'msg'} : event) : events;
+      return play.call(this, visible);
+    };
+    const badges = window.renderHudBadges;
+    if (typeof badges === 'function') window.renderHudBadges = function(containerId, mon) {
+      const result = badges.apply(this, arguments);
+      if (mon?.isForceRandom && !mon.fainted) {
+        const root = document.getElementById(containerId);
+        if (root) {
+          const tag = document.createElement('span');
+          tag.className = 'mini-badge debuff';
+          tag.textContent = '다음 기술 무작위';
+          root.append(tag);
+        }
+      }
+      return result;
+    };
+    const commands = window.enableCommands;
+    if (typeof commands === 'function') window.enableCommands = function(enabled) {
+      const result = commands.apply(this, arguments);
+      if (enabled && typeof myTeam !== 'undefined' && myTeam?.lead?.isForceRandom) {
+        const indicator = document.getElementById('cmd-status-indicator');
+        if (indicator) indicator.textContent = '다음 기술 무작위 · 교체 가능';
+      }
+      return result;
+    };
+  }, {once:true});
+})();
