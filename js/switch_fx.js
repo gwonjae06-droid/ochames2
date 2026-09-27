@@ -6,7 +6,7 @@
     .switch-ghost{position:absolute;z-index:9;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:visible;border-radius:16px;background:var(--switch-glow,#38bdf8);color:white;font:900 12px system-ui;box-shadow:0 0 18px var(--switch-glow,#38bdf8);animation:switchWithdraw .32s ease-in forwards}
     .switch-ghost img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 7px 10px #0009)}
     .char-sprite.switch-arrival{animation:switchArrival .58s cubic-bezier(.18,.8,.3,1) .26s both!important}
-    .switch-spark{position:absolute;left:50%;top:50%;z-index:8;width:4px;height:17px;border-radius:999px;background:linear-gradient(white,var(--switch-glow,#38bdf8));box-shadow:0 0 9px var(--switch-glow,#38bdf8);pointer-events:none;animation:switchSpark .6s ease-out both}
+    .switch-spark{position:absolute;left:50%;top:50%;z-index:8;width:4px;height:17px;border-radius:999px;background:linear-gradient(white,var(--switch-glow,#38bdf8));box-shadow:0 0 18px var(--switch-glow,#38bdf8);pointer-events:none;animation:switchSpark .6s ease-out both}
     .switch-ring{position:absolute;inset:-12px;z-index:7;border:3px solid var(--switch-glow,#38bdf8);border-radius:50%;box-shadow:0 0 22px var(--switch-glow,#38bdf8);pointer-events:none;animation:switchRing .7s ease-out both}
     @keyframes switchWithdraw{0%{opacity:1;transform:scale(1);filter:brightness(1)}45%{opacity:.9;transform:scale(.72);filter:brightness(2)}100%{opacity:0;transform:scale(.12) translateY(-65px)}}
     @keyframes switchArrival{0%{opacity:0;transform:scale(.25) translateY(30px);filter:brightness(2.8)}70%{opacity:1;transform:scale(1.13);filter:brightness(1.55)}100%{opacity:1;transform:scale(1);filter:none}}
@@ -184,4 +184,64 @@
   reduced.addEventListener?.('change',()=>{if(reduced.matches)stopVisual();else startVisual();});
   theme.addEventListener('error',()=>console.warn('타이틀 음악 파일을 불러오지 못했습니다: assets/audio/MAIN.mp3'));
   playTitle();
+})();
+
+// Keep existing game handlers, but lay out pre-battle navigation in three columns.
+(() => {
+  'use strict';
+  const lobby=document.getElementById('lobby-panel'),entry=document.getElementById('pick-panel'),battle=document.getElementById('battle-screen');
+  if(!lobby||!entry||!battle)return;
+  lobby.querySelectorAll('.title-rune').forEach(el=>el.remove());
+  const aside=document.createElement('aside');aside.className='home-npc-panel';aside.setAttribute('aria-label','NPC 대전');
+  const title=document.createElement('h2');title.textContent='🤖 NPC 도전';
+  const help=document.createElement('p');help.textContent='왼쪽에서 NPC 대전을 선택한 뒤, 오른쪽에서 엔트리와 도구를 정하세요.';
+  const actions=document.createElement('div');actions.className='home-npc-actions';aside.append(title,help,actions);
+  const single=lobby.querySelector('.ai-btn:not(.challenge-btn)');
+  if(single){const oldRow=single.parentElement;actions.append(single);if(oldRow?.classList.contains('btn-row')&&!oldRow.children.length)oldRow.remove();}
+  const challenge=lobby.querySelector('.challenge-btn');if(challenge)actions.append(challenge);
+  lobby.before(aside);
+  const onlineTitle=document.createElement('h2');onlineTitle.className='home-card-title';onlineTitle.textContent='⚔️ 온라인 전투 참가';lobby.prepend(onlineTitle);
+  const entryTitle=document.createElement('h2');entryTitle.className='home-card-title';entryTitle.textContent='🎯 엔트리 · 지닌 도구';entry.prepend(entryTitle);
+  const field=document.createElement('div');field.className='home-diamond-field';field.setAttribute('aria-hidden','true');
+  for(let i=0;i<40;i++){const gem=document.createElement('span');gem.style.setProperty('--delay',`${-(i%9)*.17}s`);field.append(gem);}document.body.prepend(field);
+  const css=document.createElement('style');css.textContent=`
+    .home-npc-panel,.home-diamond-field{display:none}
+    body.home-layout{width:100%;max-width:1440px;margin:0 auto;display:grid;grid-template-columns:minmax(210px,.8fr) minmax(290px,1.1fr) minmax(350px,1.35fr);gap:18px;align-items:start}
+    body.home-layout>.top-header{grid-column:1/-1;grid-row:1;max-width:none;width:100%;position:relative;z-index:2}
+    body.home-layout>.home-npc-panel{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:14px}
+    body.home-layout>#lobby-panel{grid-column:2;grid-row:2;max-width:none;width:100%;min-width:0;margin:0}
+    body.home-layout>#pick-panel{grid-column:3;grid-row:2;max-width:none;width:100%;min-width:0;margin:0;max-height:calc(100vh - 96px);overflow:auto}
+    body.home-layout>.home-npc-panel,body.home-layout>#lobby-panel,body.home-layout>#pick-panel{position:relative;z-index:1;background:rgba(15,27,45,.96);border:1px solid #4d6886;border-radius:16px;padding:18px;box-shadow:0 16px 45px #02061788}
+    body.home-layout #pick-panel .pick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    body.home-layout #pick-panel .skin-entry-btn{display:none!important}
+    .home-npc-panel h2,.home-card-title{font-size:17px;color:#93e5ff;margin:0 0 10px;font-weight:900}
+    .home-npc-panel p{font-size:12px;line-height:1.6;color:#cbd5e1}
+    .home-npc-actions{display:flex;flex-direction:column;gap:10px}
+    .home-npc-actions button{width:100%;min-height:46px;flex:none}
+    body.home-layout>#lobby-panel::before{display:none}
+    body.home-layout #pick-panel.home-wait-mode #pick-grid,body.home-layout #pick-panel.home-wait-mode select{opacity:.55;pointer-events:none}
+    body.home-layout #pick-panel.home-wait-mode .home-card-title::after{content:' · 먼저 대전 방식을 선택';font-size:11px;color:#fbbf24}
+    body.home-layout .home-diamond-field{display:grid;position:fixed;inset:0;z-index:0;pointer-events:none;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(5,1fr);padding:22px;overflow:hidden}
+    .home-diamond-field span{width:clamp(15px,3vw,38px);height:clamp(15px,3vw,38px);align-self:center;justify-self:center;border:2px solid #38bdf8;box-shadow:0 0 14px #38bdf877,inset 0 0 8px #a855f777;opacity:calc(.22 + var(--title-beat,0)*.55);transform:rotate(45deg) translateY(calc(var(--title-beat,0)*-12px));animation:diamondDrift 3.6s ease-in-out infinite alternate;animation-delay:var(--delay)}
+    .home-diamond-field span:nth-child(3n){border-color:#c4b5fd;width:clamp(11px,2vw,28px);height:clamp(11px,2vw,28px)}
+    @keyframes diamondDrift{from{margin-top:-12px;filter:brightness(.75)}to{margin-top:12px;filter:brightness(1.35)}}
+    body.home-layout.title-theme-on .top-header h1{transform:translateY(calc(var(--title-beat,0)*-8px))}
+    body.home-layout.title-theme-on #lobby-panel .status-badge,body.home-layout.title-theme-on #lobby-panel #user-nickname{transform:translateY(calc(var(--title-beat,0)*-6px));transition:transform .12s linear}
+    body.home-layout.title-theme-on #lobby-panel button,body.home-layout.title-theme-on .home-npc-panel button{transform:translateY(calc(var(--title-beat,0)*-5px));transition:transform .16s ease,filter .16s ease}
+    @media(hover:hover){body.home-layout #lobby-panel button:hover,body.home-layout .home-npc-panel button:hover{transform:translateY(-5px) scale(1.08);filter:brightness(1.18);box-shadow:0 10px 30px #38bdf877}}
+    @media(max-width:980px){body.home-layout{display:flex;flex-direction:column;gap:12px}body.home-layout>.top-header,body.home-layout>#lobby-panel,body.home-layout>.home-npc-panel,body.home-layout>#pick-panel{width:100%;max-width:660px;margin:0 auto}body.home-layout>#pick-panel{max-height:none}body.home-layout>#lobby-panel{order:1}body.home-layout>.home-npc-panel{order:2}body.home-layout>#pick-panel{order:3}}
+    @media(prefers-reduced-motion:reduce){.home-diamond-field span{animation:none!important;transform:rotate(45deg)!important}body.home-layout.title-theme-on #lobby-panel button,body.home-layout.title-theme-on .home-npc-panel button,body.home-layout.title-theme-on .top-header h1,body.home-layout.title-theme-on #lobby-panel .status-badge,body.home-layout.title-theme-on #lobby-panel #user-nickname{transform:none!important;transition:none!important}}
+  `;document.head.append(css);
+  let modeChosen=false;
+  function refresh(){entry.classList.toggle('home-wait-mode',!modeChosen);const ready=document.getElementById('btn-ready');if(ready&&!modeChosen)ready.disabled=true;}
+  aside.addEventListener('click',event=>{if(event.target.closest('button')){modeChosen=true;refresh();}},true);
+  lobby.addEventListener('click',event=>{if(event.target.closest('button')){modeChosen=true;refresh();}},true);
+  const oldUpdate=window.updatePickVisuals;
+  if(typeof oldUpdate==='function')window.updatePickVisuals=function(...args){const result=oldUpdate.apply(this,args);refresh();return result;};
+  const oldStart=window.startBattleScreen;
+  if(typeof oldStart==='function')window.startBattleScreen=function(...args){document.body.classList.remove('home-layout');return oldStart.apply(this,args);};
+  const oldRestart=window.restartToLobby;
+  if(typeof oldRestart==='function')window.restartToLobby=function(...args){const result=oldRestart.apply(this,args);modeChosen=false;document.body.classList.add('home-layout');refresh();return result;};
+  new MutationObserver(()=>{if(getComputedStyle(battle).display!=='none')document.body.classList.remove('home-layout');}).observe(battle,{attributes:true,attributeFilter:['style']});
+  document.body.classList.add('home-layout');refresh();
 })();
