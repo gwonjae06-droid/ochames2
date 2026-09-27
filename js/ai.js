@@ -86,20 +86,45 @@ function getNpcChoice(aiTeam, playerTeam, currentSandstorm = 0) {
 (() => {
   'use strict';
   try {
-    const ability = POKEDEX.boingo.abilityDesc;
-    if (!ability.includes('최대 체력의 10%')) throw new Error('보인고 특성 설명이 예상과 다릅니다.');
+    const boon = POKEDEX.boingo, ability = boon.abilityDesc;
+    const leap = boon.moves[1], prophecy = boon.moves[2];
+    if (!ability.includes('최대 체력의 10%') || leap.boostSpa !== 2 ||
+        prophecy.boostDef !== 2 || prophecy.boostSpd !== 2 ||
+        !leap.desc.includes('특수공격 2랭크') || !prophecy.desc.includes('방어/특방 2랭크'))
+      throw new Error('보인고 데이터가 예상과 다릅니다.');
     let code = Function.prototype.toString.call(window.calculateTurnEvents);
     for (const [before, after] of [
       ['Math.floor(targetMon.maxHp * 0.10)', 'Math.floor(targetMon.maxHp * 0.07)'],
       ['10%(-${fixedDmg})', '7%(-${fixedDmg})'],
-      ['activeMon.vulnerableTurns = 1;', 'activeMon.vulnerableTurns = 2;']
+      ['activeMon.vulnerableTurns = 1;', 'activeMon.vulnerableTurns = 2;'],
+      ["if (move.boostSpa && activeMon.id === 'boingo') {",
+       "if (move.boostSpa && activeMon.id === 'boingo' && activeMon.boingoSpaBuffTurns <= 0) {"],
+      ["if (move.boostDef && activeMon.id === 'boingo') {",
+       "const firstBoingoDefenseBoost = activeMon.boingoDefSpdBuffTurns <= 0;\n    if (move.boostDef && activeMon.id === 'boingo' && firstBoingoDefenseBoost) {"],
+      ["if (move.boostSpd && activeMon.id === 'boingo') {",
+       "if (move.boostSpd && activeMon.id === 'boingo' && firstBoingoDefenseBoost) {"],
+      ['mon.stages.spa = Math.max(-6, (mon.stages.spa || 0) - 2);',
+       'mon.stages.spa = Math.max(-6, (mon.stages.spa || 0) - 1.5);'],
+      ['mon.stages.def = Math.max(-6, (mon.stages.def || 0) - 2);',
+       'mon.stages.def = Math.max(-6, (mon.stages.def || 0) - 1.5);'],
+      ['mon.stages.spd = Math.max(-6, (mon.stages.spd || 0) - 2);',
+       'mon.stages.spd = Math.max(-6, (mon.stages.spd || 0) - 1.5);'],
+      ["stat: 'spa', amount: -2, msg: `⏳ 보인고오슬우의 특수공격 버프 만료 (-2랭크)`",
+       "stat: 'spa', amount: -1.5, msg: `⏳ 보인고오슬우의 특수공격 버프 만료 (-1.5랭크)`"],
+      ["stat: 'def', amount: -2, msg: `⏳ 보인고오슬우의 방어/특수방어 버프 만료 (-2랭크)`",
+       "stat: 'def', amount: -1.5, msg: `⏳ 보인고오슬우의 방어/특수방어 버프 만료 (-1.5랭크)`"],
+      ['targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };',
+       'targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };\n        for (const buffMon of [activeMon, targetMon]) { buffMon.boingoSpaBuffTurns = 0; buffMon.boingoDefSpdBuffTurns = 0; }']
     ]) {
       if (code.split(before).length !== 2) throw new Error(`엔진 변경 지점을 찾지 못했습니다: ${before}`);
       code = code.replace(before, after);
     }
     const revised = new Function(`return (${code})`)();
     window.calculateTurnEvents = revised;
-    POKEDEX.boingo.abilityDesc = ability.replace('최대 체력의 10%', '최대 체력의 7%');
+    boon.abilityDesc = ability.replace('최대 체력의 10%', '최대 체력의 7%');
+    leap.boostSpa = 1.5; leap.desc = leap.desc.replace('특수공격 2랭크', '특수공격 1.5랭크');
+    prophecy.boostDef = 1.5; prophecy.boostSpd = 1.5;
+    prophecy.desc = prophecy.desc.replace('방어/특방 2랭크', '방어/특방 1.5랭크');
   } catch (error) {
     console.error('보인고 밸런스 패치 실패: 원본 엔진을 유지합니다.', error);
   }
