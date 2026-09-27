@@ -104,3 +104,37 @@
     return render.apply(this,args);
   };
 })();
+
+// MP3 title music uses the existing music volume setting and stops for battles.
+(() => {
+  'use strict';
+  const theme=new Audio('assets/audio/MAIN.mp3');
+  theme.loop=true;
+  theme.preload='metadata';
+  let readyForSound=false;
+  const visible=id=>{const el=document.getElementById(id);return !!el&&getComputedStyle(el).display!=='none';};
+  const inBattle=()=>visible('battle-screen');
+  function volume(){
+    try{const s=JSON.parse(localStorage.getItem('ochames2-audio-v2')||'{}');
+      const value=Number(s.music);
+      theme.volume=s.mute?0:Math.max(0,Math.min(1,Number.isFinite(value)?value:.48))*.62;
+    }catch(error){theme.volume=.48*.62;}
+  }
+  function playTitle(){
+    if(inBattle()||document.hidden)return;
+    volume();
+    theme.play().catch(()=>{});
+  }
+  function stopTitle(){theme.pause();}
+  const start=window.startBattleScreen;
+  if(typeof start==='function')window.startBattleScreen=function(...args){stopTitle();return start.apply(this,args);};
+  const battleMusic=window.startBattleMusic;
+  if(typeof battleMusic==='function')window.startBattleMusic=function(...args){stopTitle();return battleMusic.apply(this,args);};
+  const restart=window.restartToLobby;
+  if(typeof restart==='function')window.restartToLobby=function(...args){const result=restart.apply(this,args);theme.currentTime=0;playTitle();return result;};
+  for(const type of ['pointerdown','keydown'])document.addEventListener(type,()=>{readyForSound=true;playTitle();},{passive:true});
+  for(const type of ['input','change'])document.addEventListener(type,event=>{if(event.target?.closest?.('#audio-settings-modal'))volume();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTitle();else if(readyForSound)playTitle();});
+  theme.addEventListener('error',()=>console.warn('타이틀 음악 파일을 불러오지 못했습니다: assets/audio/MAIN.mp3'));
+  playTitle();
+})();
