@@ -1,4 +1,4 @@
-// Battle item rules; presentation hooks at the end preserve these rules.
+// Battle item rules; presentation hooks below preserve these rules.
 const HELD_ITEMS = Object.freeze({
   leftovers: Object.freeze({name: '먹다남은음식', singleUse: false, description: '턴 종료 시 최대 HP의 1/16 회복'}),
   fullHeal: Object.freeze({name: '만병통치제', singleUse: true, description: '독·화상·마비에 걸리면 자동 치료'}),
@@ -6,7 +6,6 @@ const HELD_ITEMS = Object.freeze({
   whiteHerb: Object.freeze({name: '하양허브', singleUse: true, description: '떨어진 능력치 랭크를 복구'}),
   focusSash: Object.freeze({name: '기합의 띠', singleUse: true, description: 'HP가 가득 찬 상태에서 기술로 기절할 피해를 받으면 HP 1로 버팀'})
 });
-
 const HeldItemRules = Object.freeze({
   equip(team, memberId, itemId) {
     if (!team || !team.lead || !Array.isArray(team.bench) || team.bench.length !== 2) return false;
@@ -14,37 +13,29 @@ const HeldItemRules = Object.freeze({
     const members = [team.lead, ...team.bench];
     if (new Set(members.map(mon => mon && mon.id)).size !== 3 || members.some(mon => !mon)) return false;
     if (itemId !== null && !members.some(mon => mon.id === memberId)) return false;
-    for (const mon of members) {
-      mon.heldItem = itemId !== null && mon.id === memberId ? itemId : null;
-      mon.usedHeldItem = null;
-    }
+    for (const mon of members) { mon.heldItem = itemId !== null && mon.id === memberId ? itemId : null; mon.usedHeldItem = null; }
     return true;
   },
-  itemName(mon) {
-    return HELD_ITEMS[mon && mon.heldItem]?.name || '';
-  },
+  itemName(mon) { return HELD_ITEMS[mon && mon.heldItem]?.name || ''; },
   onDirectDamage(mon, hpBefore, damage, side) {
-    const amount = Math.max(0, Math.floor(Number(damage) || 0));
-    const previous = Math.max(0, Number(hpBefore) || 0);
-    let nextHp = Math.max(0, previous - amount);
-    const events = [];
+    const amount = Math.max(0, Math.floor(Number(damage) || 0)), previous = Math.max(0, Number(hpBefore) || 0);
+    let nextHp = Math.max(0, previous - amount); const events = [];
     if (mon.heldItem === 'focusSash' && previous === mon.maxHp && amount > 0 && nextHp === 0) {
-      nextHp = 1; mon.heldItem = null; mon.usedHeldItem = 'focusSash';
-      events.push({type: 'msg', side, msg: `${mon.name}의 기합의 띠! HP 1로 버텼다!`});
+      nextHp = 1; mon.heldItem = null; mon.usedHeldItem = 'focusSash'; events.push({type:'msg',side,msg:`${mon.name}의 기합의 띠! HP 1로 버텼다!`});
     }
     mon.hp = nextHp;
     if (mon.heldItem === 'sitrus' && nextHp > 0 && nextHp <= mon.maxHp / 2) {
       const heal = Math.min(mon.maxHp - nextHp, Math.max(1, Math.floor(mon.maxHp / 4)));
       mon.hp += heal; mon.heldItem = null; mon.usedHeldItem = 'sitrus';
-      events.push({type: 'heal', side, heal, hp: mon.hp, msg: `${mon.name}의 자뭉열매! HP ${heal} 회복!`});
+      events.push({type:'heal',side,heal,hp:mon.hp,msg:`${mon.name}의 자뭉열매! HP ${heal} 회복!`});
     }
-    return {hp: mon.hp, events};
+    return {hp:mon.hp,events};
   },
   afterHpChange(mon, side) {
     if (!mon || mon.fainted || mon.hp <= 0 || mon.heldItem !== 'sitrus' || mon.hp > mon.maxHp / 2) return [];
     const heal = Math.min(mon.maxHp - mon.hp, Math.max(1, Math.floor(mon.maxHp / 4)));
     mon.hp += heal; mon.heldItem = null; mon.usedHeldItem = 'sitrus';
-    return [{type: 'heal', side, heal, hp: mon.hp, msg: `${mon.name}의 자뭉열매! HP ${heal} 회복!`}];
+    return [{type:'heal',side,heal,hp:mon.hp,msg:`${mon.name}의 자뭉열매! HP ${heal} 회복!`}];
   },
   afterStatChange(mon, side) {
     if (!mon || mon.heldItem !== 'whiteHerb' || !mon.stages) return [];
@@ -52,19 +43,19 @@ const HeldItemRules = Object.freeze({
     if (!lowered.length) return [];
     for (const stat of lowered) mon.stages[stat] = 0;
     mon.heldItem = null; mon.usedHeldItem = 'whiteHerb';
-    return [{type: 'msg', side, msg: `${mon.name}의 하양허브! 떨어진 능력치가 복구되었다!`}];
+    return [{type:'msg',side,msg:`${mon.name}의 하양허브! 떨어진 능력치가 복구되었다!`}];
   },
   afterStatusChange(mon, side) {
     if (!mon || mon.heldItem !== 'fullHeal' || !(mon.poisoned || mon.burned || mon.paralyzed)) return [];
     mon.poisoned = false; mon.burned = false; mon.paralyzed = false;
     mon.heldItem = null; mon.usedHeldItem = 'fullHeal';
-    return [{type: 'msg', side, msg: `${mon.name}의 만병통치제! 상태이상을 치료했다!`}];
+    return [{type:'msg',side,msg:`${mon.name}의 만병통치제! 상태이상을 치료했다!`}];
   },
   endTurn(mon, side) {
     if (!mon || mon.fainted || mon.hp <= 0 || mon.hp >= mon.maxHp || mon.heldItem !== 'leftovers') return [];
     const heal = Math.min(mon.maxHp - mon.hp, Math.max(1, Math.floor(mon.maxHp / 16)));
     mon.hp += heal;
-    return [{type: 'heal', side, heal, hp: mon.hp, msg: `${mon.name}의 먹다남은음식! HP ${heal} 회복!`}];
+    return [{type:'heal',side,heal,hp:mon.hp,msg:`${mon.name}의 먹다남은음식! HP ${heal} 회복!`}];
   }
 });
 
@@ -126,4 +117,55 @@ const HeldItemRules = Object.freeze({
     if(getComputedStyle(field).display!=='none')for(const side of changes){const node=document.getElementById(`${side}-sprite`);if(!node)continue;const flare=document.createElement('span');flare.className='switch-flare';flare.setAttribute('aria-hidden','true');node.append(flare);setTimeout(()=>flare.remove(),850);}
     return result;
   };
+})();
+
+// Boingo is distinct from Oh; use the uploaded jester portraits and suit-marked cards.
+(() => {
+  'use strict';
+  const front='assets/skins/boingo-jester.png',back='assets/skins/boingo-jester-back.png';
+  const arena=document.getElementById('battle-screen');if(!arena)return;
+  const css=document.createElement('style');css.textContent=`
+    .boingo-orbit{position:absolute;inset:-17px;z-index:8;pointer-events:none;border:2px dashed #f9a8d4;border-radius:50%;box-shadow:0 0 18px #ec4899;animation:boingoOrbit 4s linear infinite}
+    .boingo-orbit span{position:absolute;background:#fff;border:1px solid #ec4899;border-radius:3px;color:#1e102c;font:900 14px Georgia,serif;padding:1px 3px;box-shadow:0 0 10px #f472b6}
+    .boingo-orbit span:nth-child(1){top:-12px;left:45%;color:#181126}.boingo-orbit span:nth-child(2){top:43%;right:-13px;color:#db2777}.boingo-orbit span:nth-child(3){bottom:-12px;left:45%;color:#181126}.boingo-orbit span:nth-child(4){top:43%;left:-13px;color:#db2777}
+    @keyframes boingoOrbit{to{transform:rotate(360deg)}}
+    .boingo-card{position:absolute;z-index:18;width:43px;height:62px;pointer-events:none;background:linear-gradient(145deg,#fff,#ffedf5);border:2px solid #f9a8d4;border-radius:6px;box-shadow:0 0 15px #ec4899,0 5px 13px #0008;color:#241333;font:900 27px Georgia,serif;display:grid;place-items:center;transform:translate(-50%,-50%);animation:boingoFly .9s cubic-bezier(.19,.8,.3,1) forwards}
+    .boingo-card[data-red="true"]{color:#dc2626}.boingo-card::before,.boingo-card::after{content:attr(data-suit);position:absolute;font:900 12px Georgia,serif;left:4px;top:2px}.boingo-card::after{left:auto;top:auto;right:4px;bottom:2px;transform:rotate(180deg)}
+    .boingo-card[data-kind="prophecy"]{animation:boingoProphecy 1.05s ease-in-out forwards}.boingo-card[data-kind="chaos"]{animation:boingoChaos 1.3s ease-out forwards}
+    @keyframes boingoFly{0%{opacity:0;transform:translate(-50%,-50%) scale(.55) rotate(-35deg)}20%{opacity:1}75%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.2) rotate(var(--rot))}}
+    @keyframes boingoProphecy{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}30%,75%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.9) rotate(var(--rot))}}
+    @keyframes boingoChaos{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}25%,72%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.55) rotate(var(--rot))}}
+    .boingo-mask{position:absolute;z-index:19;top:27%;left:50%;transform:translateX(-50%);pointer-events:none;font:900 34px system-ui;filter:drop-shadow(0 0 12px #f472b6);animation:boingoMask .95s ease-out forwards}
+    @keyframes boingoMask{0%{opacity:0;scale:.4}30%{opacity:1;scale:1.4}100%{opacity:0;scale:1.1}}
+    @media(prefers-reduced-motion:reduce){.boingo-orbit,.boingo-card,.boingo-mask{animation:none!important}.boingo-card,.boingo-mask{display:none}}
+  `;document.head.append(css);
+  function image(node,path){
+    const img=node?.querySelector('img.champion-art');if(!img)return;
+    node.dataset.skin='jester';node.style.setProperty('--skin-glow','#f9a8d4');
+    if(img.getAttribute('src')!==path){img.onload=()=>{if(img.getAttribute('src')===path)node.dataset.spriteReady='true';};img.onerror=()=>console.warn('보인고 사진을 불러오지 못했습니다:',path);img.src=path;}
+    else if(img.complete&&img.naturalWidth)node.dataset.spriteReady='true';
+  }
+  function orbit(node,on){let ring=node?.querySelector('.boingo-orbit');if(!node)return;if(!on){ring?.remove();return;}if(ring)return;
+    ring=document.createElement('span');ring.className='boingo-orbit';ring.setAttribute('aria-hidden','true');for(const suit of ['♠','♥','♣','♦']){const s=document.createElement('span');s.textContent=suit;ring.append(s);}node.append(ring);
+  }
+  const oldRender=window.renderBattleField;
+  if(typeof oldRender==='function')window.renderBattleField=function(...args){const result=oldRender.apply(this,args);
+    for(const [side,team,path] of [['player',typeof myTeam==='undefined'?null:myTeam,back],['enemy',typeof enemyTeam==='undefined'?null:enemyTeam,front]]){
+      const node=document.getElementById(`${side}-sprite`),on=team?.lead?.id==='boingo';orbit(node,on);if(on)image(node,path);
+    }return result;};
+  const oldPick=window.updatePickVisuals;
+  if(typeof oldPick==='function')window.updatePickVisuals=function(...args){const result=oldPick.apply(this,args);image(document.querySelector('#card-boingo .pick-portrait'),front);return result;};
+  image(document.querySelector('#card-boingo .pick-portrait'),front);
+  function laugh(){for(let i=0;i<3;i++){playTone(350+i*65,'sawtooth',.12,.085,210+i*40,{delay:i*.14});playNoise(.075,.037,{filter:'bandpass',cutoff:850+i*130,delay:i*.14});}}
+  function center(node){const a=node.getBoundingClientRect(),b=arena.getBoundingClientRect();return{x:a.left-b.left+a.width/2,y:a.top-b.top+a.height/2};}
+  function cards(name,mine){const actor=document.getElementById(mine?'player-sprite':'enemy-sprite'),target=document.getElementById(mine?'enemy-sprite':'player-sprite');if(!actor||!target)return;
+    const a=center(actor),b=center(target),suits=['♠','♥','♣','♦'],kind=name==='익스트림 카오스'?'chaos':name==='광기의 예언서'?'prophecy':'fly';
+    for(let i=0;i<10;i++){const suit=suits[i%4],card=document.createElement('span');card.className='boingo-card';card.dataset.suit=suit;card.dataset.kind=kind;card.dataset.red=String(suit==='♥'||suit==='♦');card.textContent=suit;card.setAttribute('aria-hidden','true');
+      card.style.left=`${a.x}px`;card.style.top=`${a.y}px`;card.style.setProperty('--dx',`${b.x-a.x+(i%5-2)*34}px`);card.style.setProperty('--dy',`${b.y-a.y+(Math.floor(i/5)-.5)*76}px`);card.style.setProperty('--rot',`${(i-5)*29}deg`);card.style.animationDelay=`${i*38}ms`;arena.append(card);setTimeout(()=>card.remove(),1700);
+    }
+    const mask=document.createElement('span');mask.className='boingo-mask';mask.textContent='🎭';mask.setAttribute('aria-hidden','true');arena.append(mask);setTimeout(()=>mask.remove(),1100);
+  }
+  const oldSkill=window.triggerSkillVisualAndAudio;
+  if(typeof oldSkill==='function')window.triggerSkillVisualAndAudio=function(name,side,...args){const mine=(isHost||isSpectator)?side==='p1':side==='p2',mon=mine?myTeam?.lead:enemyTeam?.lead;
+    const result=oldSkill.call(this,name,side,...args);if(mon?.id==='boingo'){try{cards(name,mine);laugh();}catch(error){console.warn('보인고 광대 연출 오류',error);}}return result;};
 })();
