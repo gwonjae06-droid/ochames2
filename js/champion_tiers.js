@@ -9,7 +9,7 @@
   const anon='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsanZ3emtuZHlkc2VldmduaGpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzODc5MDksImV4cCI6MjEwNTk2MzkwOX0.sMS5dRhodfVoQ-gjiKHN9u-Kt0yH_lEtXVARwpATLpo';
   const visitorKey='ochams-tier-visitor-v1';
   const css=document.createElement('style');css.textContent=`
-    .champion-tier-board{position:fixed;bottom:12px;left:12px;z-index:65;width:260px;max-width:calc(100vw - 24px);background:#132139;border:2px solid #6184aa;border-radius:12px;box-shadow:0 8px 25px #000a;color:#f1f5f9;font:12px/1.4 system-ui;overflow:hidden}
+    .champion-tier-board{position:relative;align-self:flex-start;z-index:1;width:min(320px,100%);max-width:100%;margin:0 0 10px;background:#132139;border:2px solid #6184aa;border-radius:12px;box-shadow:0 8px 25px #000a;color:#f1f5f9;font:12px/1.4 system-ui;overflow:hidden}
     .champion-tier-board summary{cursor:pointer;padding:10px 12px;background:#203655;color:#f5d487;font-size:14px;font-weight:900;list-style:none}
     .champion-tier-board summary::-webkit-details-marker{display:none}
     .champion-tier-board summary::after{content:'▾';float:right}.champion-tier-board:not([open]) summary::after{content:'▸'}
@@ -24,7 +24,7 @@
     .tier-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}.tier-count{color:#f5d487;font-size:10px;flex:none}
     .tier-vote-btn{flex:none!important;min-height:28px!important;padding:3px 6px!important;border-radius:5px!important;background:#155e75!important;color:white!important;font-size:10px!important}
     .tier-vote-btn[aria-pressed="true"]{background:#9a3412!important}.tier-vote-btn:disabled{opacity:.5;cursor:wait}
-    @media(max-width:1240px){.champion-tier-board{position:relative;bottom:auto;left:auto;width:100%;max-width:none;margin-top:6px;box-shadow:none}.tier-board-body{max-height:320px}.tier-group{grid-template-columns:34px minmax(0,1fr)}}
+    @media(max-width:1240px){.champion-tier-board{width:min(320px,100%);box-shadow:none}.tier-board-body{max-height:320px}.tier-group{grid-template-columns:34px minmax(0,1fr)}}
     @media(max-width:600px){
       #battle-screen{height:clamp(330px,100vw,380px)}
       #battle-screen .pokemon-hud{width:min(45vw,165px);padding:6px 7px}
@@ -46,7 +46,9 @@
   const body=document.createElement('div');body.className='tier-board-body';board.append(body);
   const note=document.createElement('p');note.className='tier-board-note';note.textContent='추천 수 기준 인기 티어 · 1~4 C / 5~14 B / 15~29 A / 30+ S';body.append(note);
   const status=document.createElement('p');status.className='tier-board-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');body.append(status);
-  const groups=document.createElement('div');body.append(groups);lobby.append(board);
+  const groups=document.createElement('div');body.append(groups);
+  const npcRow=lobby.querySelector('.ai-btn')?.closest('.btn-row');
+  if(npcRow)npcRow.after(board);else lobby.append(board);
   let visitor=null,counts={},mine=new Set(),ready=false,busy=false;
   try{
     visitor=localStorage.getItem(visitorKey);
