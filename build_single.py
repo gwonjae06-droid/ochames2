@@ -9,7 +9,7 @@ html = html.replace(css_marker, '<style>' + (ROOT / 'style.css').read_text(encod
 for name in (
     'js/data.js', 'js/engine.js', 'js/ai.js', 'js/audio.js', 'js/effects.js', 'js/app.js',
     'skins.js', 'skin_images.js', 'cinematics_hd.js', 'skin_sync.js', 'finishers_patch.js',
-    'js/held_items_core.js', 'js/held_items_bridge.js'
+    'js/held_items_core.js', 'js/held_items_bridge.js', 'js/switch_fx.js'
 ):
     marker = f'<script src="{name}"></script>'
     if html.count(marker) != 1:
