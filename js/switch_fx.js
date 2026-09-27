@@ -68,3 +68,39 @@
     return play.call(this,paced);
   };
 })();
+
+// Clear Leech Seed from the target when it leaves the field.
+(() => {
+  'use strict';
+  const calculate=window.calculateTurnEvents;
+  window.calculateTurnEvents=function(...args){
+    const events=calculate.apply(this,args);
+    if(!Array.isArray(events))return events;
+    const outgoing=new Map();
+    for(const ev of events){
+      if(ev?.type==='switch'&&ev.newBenchId)outgoing.set(ev.side,ev.newBenchId);
+      if(ev?.type==='sync_teams')for(const [side,id] of outgoing){
+        const team=side==='p1'?ev.p1:ev.p2;
+        for(const mon of [team?.lead,...(team?.bench||[])])if(mon?.id===id)mon.seeded=false;
+      }
+    }
+    return events;
+  };
+  const forced=window.applyForcedSwitch;
+  if(typeof forced==='function')window.applyForcedSwitch=function(side,index){
+    const team=side==='p1'?myTeam:enemyTeam,old=team?.lead;
+    const result=forced.apply(this,arguments);
+    if(result&&old)old.seeded=false;
+    return result;
+  };
+  let lastNpcLead=null;
+  const render=window.renderBattleField;
+  window.renderBattleField=function(...args){
+    if(typeof isAiMode!=='undefined'&&isAiMode&&typeof enemyTeam!=='undefined'&&enemyTeam){
+      const current=enemyTeam.lead;
+      if(lastNpcLead&&current!==lastNpcLead&&enemyTeam.bench?.includes(lastNpcLead))lastNpcLead.seeded=false;
+      lastNpcLead=current;
+    }else lastNpcLead=null;
+    return render.apply(this,args);
+  };
+})();
