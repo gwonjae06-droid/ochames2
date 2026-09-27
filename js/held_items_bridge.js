@@ -162,3 +162,69 @@
     return events;
   };
 })();
+
+// Reconstruct display-only intermediate HP states; the final sync remains authoritative.
+(() => {
+  'use strict';
+  function expandHpTimeline(events,p1Input,p2Input) {
+  if(!Array.isArray(events)||events.at(-1)?.type!=='sync_teams')return events;
+  const clone = x => JSON.parse(JSON.stringify(x));
+  const teams={p1:clone(p1Input),p2:clone(p2Input)};
+  const berries=events.filter(ev=>ev?.type==='msg' && /^(.+)의 자뭉열매! HP ([0-9]+) 회복!$/.test(ev.msg));
+  const moved=new Set(),ordered=[];
+  for(let i=0;i<events.length;i++){
+    const ev=events[i];if(!ev)continue;
+    if(berries.includes(ev) && moved.has(ev))continue;
+    const team=teams[ev.targetSide||ev.side];
+    if(ev.type==='damage' && team?.lead?.name===ev.targetName){
+      const mon=team.lead, before=Number(mon.hp), hit=Math.max(0,before-Number(ev.dmg||0));
+      const berry=mon.heldItem==='sitrus'&&hit>0 ? berries.find(note=>{
+        if(moved.has(note))return false;
+        const match=note.msg.match(/^(.+)의 자뭉열매! HP ([0-9]+) 회복!$/);
+        return match?.[1]===mon.name && Number(match[2])===ev.targetHp-hit;
+      }):null;
+      if(berry){
+        ordered.push({...ev,targetHp:hit});mon.hp=hit;
+        const healed=Number(ev.targetHp), amount=healed-hit;
+        ordered.push({type:'heal',side:ev.targetSide,heal:amount,hp:healed,msg:berry.msg});
+        mon.hp=healed;mon.heldItem=null;mon.usedHeldItem='sitrus';moved.add(berry);
+      }else{ordered.push(ev);mon.hp=ev.targetHp;}
+      continue;
+    }
+    if(ev.type==='heal'&&team?.lead){team.lead.hp=ev.hp;ordered.push(ev);continue;}
+    if(ev.type==='bench_heal'&&team?.lead && events.slice(i+1).some(x=>x?.type==='switch'&&x.side===ev.side&&x.benchIndex===ev.benchIndex)){
+      const heal=Math.max(0,Number(ev.hp)-Number(team.lead.hp));team.lead.hp=ev.hp;
+      ordered.push({type:'heal',side:ev.side,heal,hp:ev.hp,msg:ev.msg});continue;
+    }
+    if(ev.type==='bench_damage'&&team?.bench?.[ev.benchIndex]){
+      const mon=team.bench[ev.benchIndex],loss=String(ev.msg||'').match(/-([0-9]+) 피해/);
+      const hit=loss?Math.max(0,Number(mon.hp)-Number(loss[1])):NaN;
+      const berry=mon.heldItem==='sitrus'&&hit>0 ? berries.find(note=>{
+        if(moved.has(note))return false;
+        const match=note.msg.match(/^(.+)의 자뭉열매! HP ([0-9]+) 회복!$/);
+        return match?.[1]===mon.name&&Number(match[2])===ev.benchHp-hit;
+      }):null;
+      if(berry){
+        ordered.push({...ev,benchHp:hit});mon.hp=hit;
+        ordered.push({type:'bench_heal',side:ev.side,benchIndex:ev.benchIndex,heal:ev.benchHp-hit,hp:ev.benchHp,msg:berry.msg});
+        mon.hp=ev.benchHp;mon.heldItem=null;mon.usedHeldItem='sitrus';moved.add(berry);
+      }else{mon.hp=ev.benchHp;ordered.push(ev);}
+      mon.fainted=mon.hp<=0;continue;
+    }
+    if(ev.type==='switch'&&team?.bench?.[ev.benchIndex]){
+      const prev=team.lead;team.lead=team.bench[ev.benchIndex];team.bench[ev.benchIndex]=prev;
+      ordered.push(ev,{type:'sync_teams',p1:clone(teams.p1),p2:clone(teams.p2)});continue;
+    }
+    if(ev.type==='faint'&&team?.lead)team.lead.fainted=true;
+    if(ev.type==='revive'&&team?.lead){team.lead.hp=ev.hp;team.lead.fainted=false;}
+    if(ev.type==='debuff'&&ev.status&&team?.lead)team.lead[ev.status]=true;
+    ordered.push(ev);
+  }
+  return ordered;
+}
+  const calculate=window.calculateTurnEvents;
+  window.calculateTurnEvents=function(c1,c2,p1,p2,...rest){
+    const events=calculate.call(this,c1,c2,p1,p2,...rest);
+    return expandHpTimeline(events,p1,p2);
+  };
+})();
