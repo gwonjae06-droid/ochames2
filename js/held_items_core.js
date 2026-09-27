@@ -216,3 +216,20 @@ const HeldItemRules = Object.freeze({
   if(typeof duration==='function')window.skillCinematicDuration=function(name){const base=duration.apply(this,arguments);return name==='익스트림 카오스'?Math.max(Number(base)||0,2100):base;};
   for(const method of ['startBattleScreen','restartToLobby']){const previous=window[method];if(typeof previous==='function')window[method]=function(...args){clean();return previous.apply(this,args);};}
 })();
+
+// Installed after the shared cinematic hooks so only Extreme Chaos skips the legacy jester scene.
+document.addEventListener('DOMContentLoaded',() => {
+  const original=window.triggerSkillVisualAndAudio;
+  if(typeof original!=='function')return;
+  window.triggerSkillVisualAndAudio=function(name,side,...args){
+    if(name!=='익스트림 카오스')return original.call(this,name,side,...args);
+    const mine=(isHost||isSpectator)?side==='p1':side==='p2';
+    const mon=mine?myTeam?.lead:enemyTeam?.lead;
+    const sprite=document.getElementById(mine?'player-sprite':'enemy-sprite');
+    if(mon?.id!=='boingo'||!sprite)return original.call(this,name,side,...args);
+    const skin=sprite.dataset.skin;
+    delete sprite.dataset.skin;
+    try{return original.call(this,name,side,...args);}
+    finally{if(skin!==undefined)sprite.dataset.skin=skin;}
+  };
+},{once:true});
