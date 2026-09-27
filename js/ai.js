@@ -63,7 +63,8 @@ function getNpcChoice(aiTeam, playerTeam, currentSandstorm = 0) {
       ['mon.stages.spd = Math.max(-6, (mon.stages.spd || 0) - 2);','mon.stages.spd = Math.max(-6, (mon.stages.spd || 0) - 1.5);'],
       ["stat: 'spa', amount: -2, msg: `⏳ 보인고오슬우의 특수공격 버프 만료 (-2랭크)`","stat: 'spa', amount: -1.5, msg: `⏳ 보인고오슬우의 특수공격 버프 만료 (-1.5랭크)`"],
       ["stat: 'def', amount: -2, msg: `⏳ 보인고오슬우의 방어/특수방어 버프 만료 (-2랭크)`","stat: 'def', amount: -1.5, msg: `⏳ 보인고오슬우의 방어/특수방어 버프 만료 (-1.5랭크)`"],
-      ['targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };','targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };\n        for (const buffMon of [activeMon, targetMon]) { buffMon.boingoSpaBuffTurns = 0; buffMon.boingoDefSpdBuffTurns = 0; }']
+      ['targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };','targetMon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };\n        for (const buffMon of [activeMon, targetMon]) { buffMon.boingoSpaBuffTurns = 0; buffMon.boingoDefSpdBuffTurns = 0; }'],
+      ["if (targetMon.protectActive) {","if (targetMon.protectActive && (move.role === '공격' || move.dropEnemyAtk || move.dropEnemySpa || move.taunt || move.leechSeed || move.paralyze100 || move.burn100 || move.forceRandomMove)) {"]
     ])replace(before,after);
     const branch="} else {\n        const eff = getEffectiveness('바람', targetMon.type);";
     if(code.split(branch).length!==3)throw Error('성원-타임 공격 분기 불일치');
