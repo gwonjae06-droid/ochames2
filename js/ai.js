@@ -134,3 +134,29 @@ function getNpcChoice(aiTeam, playerTeam, currentSandstorm = 0) {
     };
   },{once:true});
 })();
+
+// Extreme Chaos: 66 fixed target damage, 20 fixed self damage, 1.2x incoming damage next turn.
+(() => {
+  'use strict';
+  try {
+    const move=POKEDEX.boingo.moves.find(item=>item.name==='익스트림 카오스');
+    if(!move||move.pwr!==90||move.selfVulnerable!==1.5)throw Error('익스트림 카오스 원본 데이터 불일치');
+    let code=Function.prototype.toString.call(window.calculateTurnEvents);
+    const replace=(before,after)=>{if(code.split(before).length!==2)throw Error(`카오스 엔진 지점 불일치: ${before}`);code=code.replace(before,after);};
+    replace('const effectiveness = getEffectiveness(move.type, targetMon.type);',"const isExtremeChaos = activeMon.id === 'boingo' && move.name === '익스트림 카오스';\n    const effectiveness = isExtremeChaos ? 1 : getEffectiveness(move.type, targetMon.type);");
+    replace('const isCrit = Math.random() < (','const isCrit = !isExtremeChaos && Math.random() < (');
+    const damageStart='let baseDmg = (((18 * move.pwr * (atkStat / Math.max(1, defStat))) / 50) + 4);';
+    if(code.split(damageStart).length!==2)throw Error('일반 기술 데미지 공식 불일치');
+    const at=code.indexOf(damageStart),head=code.slice(0,at),tail=code.slice(at);
+    const hpLine='targetMon.hp = Math.max(0, targetMon.hp - finalDmg);';
+    if(tail.split(hpLine).length!==2)throw Error('일반 기술 체력 처리 불일치');
+    code=head+tail.replace(hpLine,"if (isExtremeChaos) finalDmg = 66;\n    "+hpLine);
+    replace('    // 흡혈',"    if (isExtremeChaos) {\n      const recoil = Math.min(20, activeMon.hp);\n      activeMon.hp = Math.max(0, activeMon.hp - recoil);\n      events.push({type:'damage',targetSide:actor.side,actorSide:actor.side,actorName:activeMon.name,targetName:activeMon.name,moveName:'익스트림 카오스 반동',moveType:'환락',dmg:recoil,targetHp:activeMon.hp,targetMaxHp:activeMon.maxHp,isCrit:false,effectiveness:1,msg:`${activeMon.name}은(는) 익스트림 카오스의 반동으로 ${recoil} 피해를 입었다!`});\n    }\n\n    // 흡혈");
+    replace("    if (targetMon.hp <= 0) {\n      handleFaint(targetMon, targetSide, activeMon, actor.side);\n    }\n  }\n\n  function handleFaint", "    if (targetMon.hp <= 0) {\n      handleFaint(targetMon, targetSide, activeMon, actor.side);\n    }\n    if (isExtremeChaos && activeMon.hp <= 0) handleFaint(activeMon, actor.side, targetMon, targetSide);\n  }\n\n  function handleFaint");
+    const revised=new Function(`return (${code})`)();
+    window.calculateTurnEvents=revised;
+    move.pwr=66;
+    move.selfVulnerable=1.2;
+    move.desc='상대에게 상성·능력치와 무관하게 66의 고정 피해를 주고 자신도 20의 고정 피해를 입는다. 다음 턴 받는 피해가 1.2배가 된다. 방어 기술에는 막힌다.';
+  } catch(error) { console.error('익스트림 카오스 고정 피해 패치 실패: 원본 규칙을 유지합니다.',error); }
+})();
