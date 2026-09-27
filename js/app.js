@@ -588,7 +588,7 @@ function triggerSwitchInAbilities(userMon, opponentMon) {
   }
 }
 
-const SPRITE_FILES=Object.freeze({bae:'bae',oh:'oh',lee:'lee',park:'park',choi:'choi',yoon:'yoon',boingo:'boingo',sungwon_time:'sungwon_time'});
+const SPRITE_FILES=Object.freeze({mashiro:'nk-m',bae:'bae',oh:'oh',lee:'lee',park:'park',choi:'choi',yoon:'yoon',boingo:'boingo',sungwon_time:'sungwon_time'});
 function mountChampionArt(node,mon,back=false){
  if(!node||!mon||!Object.prototype.hasOwnProperty.call(SPRITE_FILES,mon.id))return;
  const key=mon.id+(back?'-back':'-front');node.dataset.character=mon.id;
@@ -597,10 +597,10 @@ function mountChampionArt(node,mon,back=false){
  const label=node.querySelector('.sprite-label');if(label)label.textContent=mon.name;
  let img=node.querySelector('.champion-art');
  if(!img){img=document.createElement('img');img.className='champion-art';img.alt='';img.draggable=false;node.prepend(img);}
- const front=`assets/sprites/${SPRITE_FILES[mon.id]}.png`;let fallback=!back;
+ const front=mon.id==='mashiro'?'assets/skins/nk-m.png':`assets/sprites/${SPRITE_FILES[mon.id]}.png`;let fallback=!back;
  img.onload=()=>{if(node.dataset.spriteKey===key)node.dataset.spriteReady='true';};
  img.onerror=()=>{if(node.dataset.spriteKey!==key)return;if(!fallback){fallback=true;img.src=front;}else{node.dataset.spriteReady='false';img.removeAttribute('src');}};
- img.src=back?`assets/sprites/${SPRITE_FILES[mon.id]}-back.png`:front;
+ img.src=back?(mon.id==='mashiro'?'assets/skins/nk-m-back.png':`assets/sprites/${SPRITE_FILES[mon.id]}-back.png`):front;
 }
 function escapeNick(text){return String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function updateTrainerNameplate(){
