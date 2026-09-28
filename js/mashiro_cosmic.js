@@ -4,7 +4,7 @@
 const byId=()=>window.MASHIRO_CELESTIAL_BY_ID||{};
 const list=()=>window.MASHIRO_CELESTIALS||[];
 const cannonNames=()=>new Set(list().map(c=>c.move.name));
-const isOwnSide=side=>(window.isHost||window.isSpectator)?side==='p1':side==='p2';
+const isOwnSide=side=>(isHost||isSpectator)?side==='p1':side==='p2';
 const spriteForSide=side=>isOwnSide(side)?'player-sprite':'enemy-sprite';
 const has=name=>typeof window[name]==='function';
 
@@ -138,9 +138,9 @@ function install(){
  const oldImpact=window.playSkillCinematicImpactFX;
  const oldPlay=window.playTurnEvents;
 
- window.renderBattleField=function(...args){const result=oldRender(...args);renderCard('player-sprite',window.myTeam?.lead);renderCard('enemy-sprite',window.enemyTeam?.lead);return result;};
+ window.renderBattleField=function(...args){const result=oldRender(...args);renderCard('player-sprite',myTeam?.lead);renderCard('enemy-sprite',enemyTeam?.lead);return result;};
  window.openMoveMenu=function(...args){
-  const result=oldMoves(...args),mon=window.myTeam?.lead,foe=window.enemyTeam?.lead;if(!mon)return result;
+  const result=oldMoves(...args),mon=myTeam?.lead,foe=enemyTeam?.lead;if(!mon)return result;
   mon.moves.forEach((move,i)=>{const tag=document.getElementById(`m${i}-tag`),desc=document.getElementById(`m${i}-desc`);if(!tag)return;const acc=has('getDisplayedAccuracy')?getDisplayedAccuracy(mon,move,foe):move.acc??100;if(!tag.textContent.includes('명중'))tag.textContent+=` · 명중 ${acc}%`;if(mon.id==='mashiro'&&i===1&&BY_ID[mon.celestial]){const c=BY_ID[mon.celestial];document.getElementById('m1-name').textContent=c.move.name;tag.textContent=`${c.move.type} · 위력 ${c.move.pwr} · 명중 ${acc}%`;if(desc)desc.textContent=c.move.desc;}}
   );return result;
  };
@@ -171,7 +171,7 @@ function install(){
   const oldSet=window.setBattleMsg;
   window.setBattleMsg=function(message){
    if(message==='__MASHIRO_DISCOVERY__'){
-    const item=discoveries[pointer++]?.event;if(item){const mon=isOwnSide(item.side)?window.myTeam?.lead:window.enemyTeam?.lead;showDiscovery(item.side,mon,item.celestial,item.msg);}return;
+    const item=discoveries[pointer++]?.event;if(item){const mon=isOwnSide(item.side)?myTeam?.lead:enemyTeam?.lead;showDiscovery(item.side,mon,item.celestial,item.msg);}return;
    }
    return oldSet(message);
   };
