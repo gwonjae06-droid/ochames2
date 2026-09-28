@@ -26,6 +26,12 @@ window.MASHIRO_CELESTIAL_BY_ID=BY_ID;
 
 function ensure(mon){
  if(!mon)return mon;
+ if(mon.id==='mashiro'){
+  mon.ability='고양이 레이더';
+  if(Array.isArray(mon.moves)&&mon.moves.some(move=>move&&Object.prototype.hasOwnProperty.call(move,'drain'))){
+   mon.moves=mon.moves.map(move=>{if(!move)return move;const clean={...move};delete clean.drain;return clean;});
+  }
+ }
  mon.stages={...blankStages(),...(mon.stages||{})};
  if(!mon.radarCopiedStages)mon.radarCopiedStages=blankStages();
  if(!Number.isFinite(mon.radarCopyTurns))mon.radarCopyTurns=0;
