@@ -37,16 +37,16 @@ function accuracyMultiplier(mon){
  return stage>=0?(3+stage)/3:3/(3-stage);
 }
 function canonicalSide(mon){
- if(!window.myTeam||!window.enemyTeam)return 'p1';
+ if(typeof myTeam==='undefined'||!myTeam||typeof enemyTeam==='undefined'||!enemyTeam)return 'p1';
  const own=mon===myTeam.lead||(myTeam.bench||[]).includes(mon);
- if(window.isHost||window.isSpectator)return own?'p1':'p2';
+ if(isHost||isSpectator)return own?'p1':'p2';
  return own?'p2':'p1';
 }
 function applyCannon(mon){
  if(!mon||mon.id!=='mashiro')return;
  const celestial=BY_ID[mon.celestial];
  if(!celestial)return;
- const base=(window.POKEDEX?.mashiro?.moves?.[1])||mon.moves[1];
+ const base=(typeof POKEDEX!=='undefined'&&POKEDEX.mashiro?POKEDEX.mashiro.moves[1]:mon.moves[1]);
  const clean={...base,...celestial.move,planetCannon:true};
  mon.moves=[...mon.moves];
  mon.moves[1]=clean;
@@ -124,7 +124,7 @@ function ready(){return typeof window.buildMon==='function'&&typeof window.calcu
 function install(){
  if(window.__mashiroPatchV3||!ready())return;
  window.__mashiroPatchV3=true;
- if(window.POKEDEX?.mashiro){
+ if(typeof POKEDEX!=='undefined'&&POKEDEX.mashiro){
   POKEDEX.mashiro.abilityDesc='출전 즉시 천체를 탐색하고, 이후 매 턴 종료 시 수성·금성·지구·화성·목성·토성·천왕성·해왕성 및 특수 천체 중 다른 하나를 탐색한다. 출전 시 상대의 양수 능력치 랭크를 2턴 동안 복사한다.';
   POKEDEX.mashiro.story='우주와 태양계를 탐사하며, 발견한 천체를 행성 대포에 실어 발사한다.';
  }
@@ -142,8 +142,8 @@ function install(){
    const side=canonicalSide(mon);
    const found=discover(mon,foe,side,'switchIn');
    const discovery=found[0];
-   setTimeout(()=>{if(window.battleActive&&typeof window.showMashiroDiscovery==='function')window.showMashiroDiscovery(side,mon,discovery.celestial,discovery.msg);},520);
-   setTimeout(()=>{if(window.battleActive&&typeof window.setBattleMsg==='function')window.setBattleMsg(radarMsg);},1550);
+   setTimeout(()=>{if(battleActive&&typeof window.showMashiroDiscovery==='function')window.showMashiroDiscovery(side,mon,discovery.celestial,discovery.msg);},520);
+   setTimeout(()=>{if(battleActive&&typeof window.setBattleMsg==='function')window.setBattleMsg(radarMsg);},1550);
   }
  };
  window.calculateTurnEvents=function(c1,c2,p1,p2,turn,sand){
@@ -157,7 +157,7 @@ function install(){
    const team=teams[i],choice=choices[i],other=teams[1-i];
    let incoming=team.lead;
    if(choice.type==='switch'&&Number.isInteger(choice.benchIndex))incoming=team.bench[choice.benchIndex];
-   if(incoming?.id==='mashiro'&&(choice.type==='switch'||!incoming.celestial)){
+   if(incoming===team.lead&&incoming?.id==='mashiro'&&!incoming.celestial){
     const opposingChoice=choices[1-i];
     const foe=opposingChoice.type==='switch'&&Number.isInteger(opposingChoice.benchIndex)?other.bench[opposingChoice.benchIndex]:other.lead;
     entryEvents[i]=discover(incoming,foe,i?'p2':'p1','switchIn');
