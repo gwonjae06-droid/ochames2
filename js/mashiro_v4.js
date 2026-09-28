@@ -1,114 +1,30 @@
-(()=>{
-'use strict';
-const clone=value=>typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));
-const all=team=>team?[team.lead,...(team.bench||[])].filter(Boolean):[];
-const ownSide=side=>(isHost||isSpectator)?side==='p1':side==='p2';
-const foeSide=side=>side==='p1'?'p2':'p1';
-function statEvent(side,stat,amount,msg){return {type:amount>0?'buff':'debuff',side,stat,amount,msg};}
-function applyStage(mon,stat,amount){
- if(!mon)return 0;if(!mon.stages)mon.stages={atk:0,def:0,spa:0,spd:0,spe:0,acc:0};
- if(!(stat in mon.stages))mon.stages[stat]=0;
- const before=mon.stages[stat]||0;mon.stages[stat]=Math.max(-6,Math.min(6,before+amount));return mon.stages[stat]-before;
+(()=>{'use strict';
+const cp=v=>typeof structuredClone==='function'?structuredClone(v):JSON.parse(JSON.stringify(v));
+const mons=t=>t?[t.lead,...(t.bench||[])].filter(Boolean):[];
+const mine=s=>(isHost||isSpectator)?s==='p1':s==='p2';
+const other=s=>s==='p1'?'p2':'p1';
+const stage=(m,k,n)=>{if(!m)return 0;m.stages||=( {atk:0,def:0,spa:0,spd:0,spe:0,acc:0});m.stages.acc??=0;const b=m.stages[k]||0;m.stages[k]=Math.max(-6,Math.min(6,b+n));return m.stages[k]-b};
+const ok=(es,s,n)=>{const a=es.findIndex(e=>e.type==='move_announce'&&e.side===s&&e.moveName===n),z=es.findIndex((e,i)=>i>a&&e.type==='move_announce');return a>=0&&!es.slice(a,z<0?es.length:z).some(e=>(e.type==='msg'&&/빗나갔|실패/.test(e.msg||''))||(e.type==='protect'&&e.side!==s))};
+const reset=m=>{if(!m)return;m.stages={atk:0,def:0,spa:0,spd:0,spe:0,acc:0};m.radarCopyTurns=0;m.radarCopiedStages={atk:0,def:0,spa:0,spd:0,spe:0,acc:0};m.lastMoveIndex=null;m.protectActive=false;m.rewindActive=false};
+function rankFx(up,x,y,color='#38bdf8'){let f=0,A=Array.from({length:7},(_,i)=>({x:(i-3)*19,d:i*2,y:(up?58:-58)+(i%2)*(up?9:-9)}));addFX(c=>{f++;c.save();let a=Math.min(1,f/5)*Math.max(0,1-Math.max(0,f-34)/14);c.globalAlpha=a;c.font='900 21px sans-serif';c.textAlign='center';c.lineWidth=5;c.strokeStyle=up?'#07111f':'#18091f';c.fillStyle=up?'#f0f9ff':'#fdf4ff';c.shadowColor=up?color:'#d946ef';c.shadowBlur=22;c.strokeText(up?'RANK UP!':'RANK DOWN!',x,y-64);c.fillText(up?'RANK UP!':'RANK DOWN!',x,y-64);A.forEach(q=>{if(f<q.d)return;q.y+=up?-4.6:4.6;let al=Math.max(0,1-Math.abs(q.y+(up?-4:4))/72),X=x+q.x,Y=y+q.y;c.globalAlpha=al;c.fillStyle=up?color:'#d946ef';c.strokeStyle=up?'#e0f2fe':'#fae8ff';c.lineWidth=2.5;c.shadowBlur=24;c.beginPath();c.moveTo(X,Y+(up?-14:14));c.lineTo(X+11,Y+(up?8:-8));c.lineTo(X+4,Y+(up?8:-8));c.lineTo(X+4,Y+(up?18:-18));c.lineTo(X-4,Y+(up?18:-18));c.lineTo(X-4,Y+(up?8:-8));c.lineTo(X-11,Y+(up?8:-8));c.closePath();c.fill();c.stroke()});c.restore();return f<48})}
+function install(){if(window.__mashiroV4Final||typeof calculateTurnEvents!=='function'||typeof selectMove!=='function'||typeof renderHudBadges!=='function'||typeof playTurnEvents!=='function')return setTimeout(install,40);window.__mashiroV4Final=1;
+ window.playRankUpFX=(x,y,c)=>rankFx(true,x,y,c);window.playRankDownFX=(x,y)=>rankFx(false,x,y);
+ const calc=window.calculateTurnEvents,sel=window.selectMove,badges=window.renderHudBadges,shown=window.getDisplayedAccuracy,play=window.playTurnEvents;
+ window.calculateTurnEvents=function(c1,c2,p1,p2,turn,sand){let C=[cp(c1),cp(c2)],B=[cp(p1),cp(p2)];B.forEach(t=>mons(t).forEach(m=>m.yuksu=!!m.yuksu));
+  for(let i=0;i<2;i++){let a=B[i].lead,t=B[1-i].lead,ch=C[i],mv=a?.moves?.[ch.moveIndex];if(ch.type!=='move'||!mv)continue;if(t?.id==='mashiro'&&a.yuksu)mv.acc=.9}
+  const first=(i,j)=>{let a=B[i].lead,b=B[j].lead,x=C[i],y=C[j],mx=a?.moves?.[x.moveIndex],my=b?.moves?.[y.moveIndex],px=x.type==='switch'?10:(mx?.protect?4:(mx?.priority||0)),py=y.type==='switch'?10:(my?.protect?4:(my?.priority||0));return px!==py?px>py:getStat(a,'spe',sand)>=getStat(b,'spe',sand)};
+  for(let i=0;i<2;i++){let ch=C[i],a=B[i].lead,m=a?.moves?.[ch.moveIndex],o=C[1-i],om=B[1-i].lead?.moves?.[o.moveIndex];if(ch.type==='move'&&a?.id==='mashiro'&&m?.dropEnemyAcc&&o.type==='move'&&om&&first(i,1-i))om.acc=(om.acc??100)*.75}
+  let E=calc(C[0],C[1],B[0],B[1],turn,sand),si=E.findIndex(e=>e.type==='sync_teams');if(si<0)return E;let S=E[si],O=[S.p1,S.p2];
+  for(let i=0;i<2;i++){let s=i?'p2':'p1',os=other(s),ch=C[i],used=B[i].lead?.moves?.[ch.moveIndex];if(ch.type!=='move'||!used?.gravityShield||!ok(E,s,used.name))continue;let block=E.findIndex(e=>e.type==='protect'&&e.side===s&&/막아냈다/.test(e.msg||''));if(block<0)continue;let atk=O[1-i].lead;if(!atk||atk.fainted)continue;atk.yuksu=true;for(let j=E.length-1;j>=0;j--)if((E[j].type==='heal'&&E[j].side===s&&/중력방패/.test(E[j].msg||''))||(E[j].status==='yuksu'&&E[j].side===os))E.splice(j,1);E.splice(block+1,0,{type:'debuff',side:os,status:'yuksu',msg:`🥣 [중력방패] ${atk.name}이(가) 육수 상태가 됐다! 對마시로 명중률 0.9%.`})}
+  for(let i=0;i<2;i++){let s=i?'p2':'p1',ch=C[i],used=B[i].lead?.moves?.[ch.moveIndex];if(ch.type!=='move'||!used?.phaseShift||!ok(E,s,used.name))continue;let ownAnn=E.findIndex(e=>e.type==='move_announce'&&e.side===s&&e.moveName===used.name),foeAnn=E.findIndex(e=>e.type==='move_announce'&&e.side===other(s)),early=ownAnn>=0&&(foeAnn<0||ownAnn<foeAnn),T=O[i],old=B[i].lead,idx=Number(ch.phaseShiftBenchIndex);if(![0,1].includes(idx)||!B[i].bench[idx]||B[i].bench[idx].fainted)idx=B[i].bench.findIndex(m=>m&&!m.fainted);if(idx<0)continue;let wantedId=B[i].bench[idx].id,wi=T.lead?.id===wantedId?-1:T.bench.findIndex(m=>m?.id===wantedId);if(wi>=0){let q=T.lead;T.lead=T.bench[wi];T.bench[wi]=q}let next=T.lead,mash=T.bench.find(m=>m?.id==='mashiro');if(!next||next.id==='mashiro')continue;
+   let sw=E.findIndex(e=>e.type==='switch'&&e.side===s&&/위상전이/.test(e.msg||''));if(early&&foeAnn>=0){let d=E.find(e=>e.type==='damage'&&e.actorSide===other(s)&&e.targetSide===s);if(d&&mash){let om=B[1-i].lead?.moves?.[C[1-i].moveIndex],phys=om?.category==='물리',od=Math.max(1,getStat(old,phys?'def':'spd',sand)),nd=Math.max(1,getStat(next,phys?'def':'spd',sand)),oe=d.effectiveness||1,ne=typeof getEffectiveness==='function'?getEffectiveness(om?.type,next.type):oe,ndmg=Math.max(1,Math.round(d.dmg*(od/nd)*(ne/oe)));mash.hp=Math.min(mash.maxHp,mash.hp+d.dmg);next.hp=Math.max(0,next.hp-ndmg);d.dmg=ndmg;d.targetName=next.name;d.targetHp=next.hp;d.targetMaxHp=next.maxHp;d.effectiveness=ne;if(next.hp<=0)next.fainted=true}
+    if(sw>=0){let ev=E.splice(sw,1)[0];foeAnn=E.findIndex(e=>e.type==='move_announce'&&e.side===other(s));E.splice(Math.max(0,foeAnn),0,ev)}}
+   reset(mash);reset(next)}
+  S.p1=O[0];S.p2=O[1];return E};
+ function targets(mi){let live=myTeam.bench.map((m,i)=>({m,i})).filter(x=>x.m&&!x.m.fainted);if(!live.length)return sel(mi);document.getElementById('menu-moves').style.display='none';let q=document.getElementById('menu-pokemon');q.style.display='grid';q.innerHTML='<div style="grid-column:span 2;font-size:12px;font-weight:900;color:#c4b5fd">✨ 공격 직후 교체할 챔피언</div>'+live.map(x=>`<button data-p="${x.i}" class="sub-btn"><b style="color:${x.m.color}">${x.m.name}</b> · ${Math.ceil(x.m.hp/x.m.maxHp*100)}%</button>`).join('')+'<button data-back class="sub-btn" style="grid-column:span 2">뒤로</button>';q.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{let i=+b.dataset.p;if(!myTeam.bench[i]||myTeam.bench[i].fainted)return;SFX.click();q.style.display='none';submitTurnChoice({type:'move',moveIndex:mi,phaseShiftBenchIndex:i})});q.querySelector('[data-back]').onclick=()=>{q.style.display='none';openMoveMenu()}}
+ window.selectMove=i=>{let m=myTeam?.lead?.moves?.[i];if(m?.phaseShift&&myTeam.bench.some(x=>x&&!x.fainted)){SFX.click();clearBoingoTimer();return targets(i)}return sel(i)};
+ window.getDisplayedAccuracy=(m,v,f)=>f?.id==='mashiro'&&m?.yuksu?.9:(typeof shown==='function'?shown(m,v,f):(v?.acc??100));
+ window.renderHudBadges=(id,m)=>{badges(id,m);if(!m?.yuksu)return;let q=document.getElementById(id);if(!q||q.querySelector('[data-yuksu]'))return;let b=document.createElement('span');b.className='mini-badge debuff';b.dataset.yuksu='1';b.textContent='🥣 육수 · 對마시로 0.9%';q.append(b)};
+ window.playTurnEvents=async E=>{if(!Array.isArray(E))return play(E);let P=new Map;for(let e of E)if(['buff','debuff'].includes(e.type)&&(e.stat||e.changes)){let k=String(e.msg||'');if(!P.has(k))P.set(k,[]);P.get(k).push(e)}let sm=window.setBattleMsg;window.setBattleMsg=x=>{let e=P.get(String(x))?.shift();if(e){let m=mine(e.side)?myTeam?.lead:enemyTeam?.lead;if(m){let c=Array.isArray(e.changes)?e.changes:(e.stat?[{stat:e.stat,amount:e.amount}]:[]);if(/공\/스피드/.test(e.msg||''))c=[{stat:'atk',amount:e.amount},{stat:'spe',amount:e.amount}];if(/특수공격과 스피드/.test(e.msg||''))c=[{stat:'spa',amount:e.amount},{stat:'spe',amount:e.amount}];if(/방어\/특수방어/.test(e.msg||''))c=[{stat:'def',amount:e.amount},{stat:'spd',amount:e.amount}];c.forEach(z=>stage(m,z.stat,+z.amount||0));renderBattleField()}}return sm(x)};try{return await play(E)}finally{window.setBattleMsg=sm}};
 }
-function successful(events,side,name){
- const start=events.findIndex(e=>e.type==='move_announce'&&e.side===side&&e.moveName===name);if(start<0)return false;
- const end=events.findIndex((e,i)=>i>start&&e.type==='move_announce');
- return !events.slice(start,end<0?events.length:end).some(e=>(e.type==='msg'&&/빗나갔|실패/.test(e.msg||''))||(e.type==='protect'&&e.side!==side));
-}
-function resetSwitchState(mon){
- if(!mon)return;mon.stages={atk:0,def:0,spa:0,spd:0,spe:0,acc:0};mon.radarCopyTurns=0;
- mon.radarCopiedStages={atk:0,def:0,spa:0,spd:0,spe:0,acc:0};mon.lastMoveIndex=null;
- mon.protectActive=false;mon.rewindActive=false;mon.yuksu=false;
-}
-function install(){
- if(window.__mashiroV4||typeof calculateTurnEvents!=='function'||typeof selectMove!=='function'||typeof renderHudBadges!=='function')return setTimeout(install,30);
- window.__mashiroV4=true;
- const oldCalc=window.calculateTurnEvents,oldSelect=window.selectMove,oldBadges=window.renderHudBadges,oldDisplayed=window.getDisplayedAccuracy;
- window.calculateTurnEvents=function(c1,c2,p1,p2,turn,sand){
-  const choices=[clone(c1),clone(c2)],before=[clone(p1),clone(p2)];
-  before.forEach(t=>all(t).forEach(m=>{if(typeof m.yuksu!=='boolean')m.yuksu=false;}));
-  for(let i=0;i<2;i++){
-   const actor=before[i].lead,target=before[1-i].lead,choice=choices[i];
-   if(choice.type!=='move'||!actor||!target)continue;
-   const move=actor.moves?.[choice.moveIndex];if(!move)continue;
-   if(target.id==='mashiro'&&actor.yuksu)move.acc=.9;
-   if(move.ignoreBarrier){move.ignoreBarrier=true;target.reflectTurns=target.reflectTurns||0;}
-  }
-  const events=oldCalc(choices[0],choices[1],before[0],before[1],turn,sand);
-  const syncIndex=events.findIndex(e=>e.type==='sync_teams');if(syncIndex<0)return events;
-  const sync=events[syncIndex],out=[sync.p1,sync.p2];
-  for(let i=0;i<2;i++){
-   const side=i?'p2':'p1',other=foeSide(side),choice=choices[i],used=before[i].lead.moves?.[choice.moveIndex];
-   if(choice.type!=='move'||!used?.gravityShield||!successful(events,side,used.name))continue;
-   const block=events.findIndex(e=>e.type==='protect'&&e.side===side&&/막아냈다/.test(e.msg||''));
-   if(block<0)continue;
-   const attacker=out[1-i].lead;if(!attacker||attacker.fainted)continue;
-   attacker.yuksu=true;
-   for(let j=events.length-1;j>=0;j--){
-    if(events[j].type==='heal'&&events[j].side===side&&/중력방패/.test(events[j].msg||''))events.splice(j,1);
-    else if(events[j].status==='yuksu'&&events[j].side===other)events.splice(j,1);
-   }
-   events.splice(block+1,0,{type:'debuff',side:other,status:'yuksu',msg:`🥣 [중력방패] ${attacker.name}이(가) 육수 상태가 됐다! 네네코 마시로를 공격할 때 명중률은 0.9%다.`});
-  }
-  for(let i=0;i<2;i++){
-   const side=i?'p2':'p1',choice=choices[i],used=before[i].lead.moves?.[choice.moveIndex];
-   if(choice.type!=='move'||!used?.phaseShift||!successful(events,side,used.name))continue;
-   const team=out[i];
-   const autoEventIndex=events.findIndex(e=>e.type==='switch'&&e.side===side&&/\[위상전이\]/.test(e.msg||''));
-   if(team.lead?.id!=='mashiro'){
-    const mashiroBench=team.bench.findIndex(m=>m?.id==='mashiro');
-    if(mashiroBench>=0){const autoLead=team.lead;team.lead=team.bench[mashiroBench];team.bench[mashiroBench]=autoLead;}
-   }
-   if(autoEventIndex>=0)events.splice(autoEventIndex,1);
-   const old=team.lead;if(!old||old.id!=='mashiro'||old.fainted)continue;
-   let idx=Number(choice.phaseShiftBenchIndex);if(![0,1].includes(idx)||!team.bench[idx]||team.bench[idx].fainted)idx=team.bench.findIndex(m=>m&&!m.fainted);
-   if(idx<0)continue;const next=team.bench[idx];resetSwitchState(old);resetSwitchState(next);team.lead=next;team.bench[idx]=old;
-   const finalSyncIndex=events.indexOf(sync);
-   events.splice(finalSyncIndex<0?events.length:finalSyncIndex,0,{type:'switch',side,benchIndex:idx,phaseShift:true,newLeadId:next.id,newBenchId:old.id,msg:`✨ [위상전이] ${old.name}이(가) 위상을 바꾸고 ${next.name}에게 자리를 넘겼다!`});
-   if(next.ability==='위협'){
-    const target=out[1-i].lead;
-    if(target.ability==='엄마없음')events.splice(events.indexOf(sync),0,{type:'msg',msg:`${target.name}의 특성 [엄마없음]! 공격력이 떨어지지 않는다!`});
-    else {const d=applyStage(target,'atk',-1);if(d)events.splice(events.indexOf(sync),0,statEvent(foeSide(side),'atk',d,`${next.name}의 [위협]! ${target.name}의 공격력이 떨어졌다!`));}
-   }
-  }
-  sync.p1=out[0];sync.p2=out[1];
-  return events;
- };
- function showPhaseTargets(moveIdx){
-  const alive=myTeam.bench.map((mon,index)=>({mon,index})).filter(x=>x.mon&&!x.mon.fainted);if(!alive.length)return oldSelect(moveIdx);
-  document.getElementById('menu-moves').style.display='none';const menu=document.getElementById('menu-pokemon');menu.style.display='grid';
-  let html='<div style="grid-column:span 2;font-size:11px;font-weight:bold;color:#c4b5fd;margin-bottom:2px;">✨ 위상전이 직후 교체할 챔피언 선택:</div>';
-  for(const {mon,index} of alive)html+=`<button data-phase-target="${index}" class="sub-btn" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin-bottom:4px;"><span style="color:${mon.color};font-weight:bold;">${mon.name} [${mon.type}]</span><span style="color:#22c55e;font-size:10px;">${Math.ceil(mon.hp/mon.maxHp*100)}% HP</span></button>`;
-  html+='<button data-phase-back class="sub-btn" style="grid-column:span 2;background:#334155;margin-top:2px;">기술 선택으로 돌아가기</button>';menu.innerHTML=html;
-  menu.querySelectorAll('[data-phase-target]').forEach(btn=>btn.onclick=()=>{const idx=Number(btn.dataset.phaseTarget),target=myTeam.bench[idx];if(!target||target.fainted)return;SFX.click();menu.style.display='none';submitTurnChoice({type:'move',moveIndex:moveIdx,phaseShiftBenchIndex:idx});});
-  menu.querySelector('[data-phase-back]').onclick=()=>{menu.style.display='none';openMoveMenu();};
- }
- window.selectMove=function(moveIdx){const move=myTeam?.lead?.moves?.[moveIdx];if(move?.phaseShift&&myTeam.bench.some(m=>m&&!m.fainted)){SFX.click();clearBoingoTimer();showPhaseTargets(moveIdx);return;}return oldSelect(moveIdx);};
- window.getDisplayedAccuracy=function(mon,move,foe){if(foe?.id==='mashiro'&&mon?.yuksu)return .9;return typeof oldDisplayed==='function'?oldDisplayed(mon,move,foe):(move?.acc??100);};
- window.renderHudBadges=function(id,mon){oldBadges(id,mon);if(!mon?.yuksu)return;const box=document.getElementById(id);if(!box||[...box.children].some(x=>x.dataset?.yuksu))return;const b=document.createElement('span');b.className='mini-badge debuff';b.dataset.yuksu='1';b.textContent='🥣 육수 · 對마시로 명중 0.9%';box.appendChild(b);};
- const oldPlay=window.playTurnEvents;
- window.playTurnEvents=async function(events){
-  if(!Array.isArray(events))return oldPlay(events);
-  const pending=new Map();
-  for(const ev of events){if(!['buff','debuff'].includes(ev.type)||(!ev.stat&&!ev.changes))continue;const key=String(ev.msg||'');if(!pending.has(key))pending.set(key,[]);pending.get(key).push(ev);}
-  const oldSet=window.setBattleMsg;
-  window.setBattleMsg=function(message){
-   const list=pending.get(String(message));const ev=list?.shift();
-   if(ev){
-    const mon=ownSide(ev.side)?myTeam?.lead:enemyTeam?.lead;
-    if(mon){
-     let changes=Array.isArray(ev.changes)?ev.changes:(ev.stat?[{stat:ev.stat,amount:ev.amount}]:[]);
-     if(/공\/스피드/.test(ev.msg||''))changes=[{stat:'atk',amount:ev.amount},{stat:'spe',amount:ev.amount}];
-     else if(/특수공격과 스피드/.test(ev.msg||''))changes=[{stat:'spa',amount:ev.amount},{stat:'spe',amount:ev.amount}];
-     else if(/방어\/특수방어/.test(ev.msg||''))changes=[{stat:'def',amount:ev.amount},{stat:'spd',amount:ev.amount}];
-     for(const change of changes)applyStage(mon,change.stat,Number(change.amount||0));
-     if(typeof renderBattleField==='function')renderBattleField();
-    }
-   }
-   return oldSet(message);
-  };
-  try{return await oldPlay(events);}finally{window.setBattleMsg=oldSet;}
- };
-}
-install();
-})();
+install()})();
