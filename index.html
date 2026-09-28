@@ -1,178 +1,196 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#070b18">
-  <meta name="description" content="캐릭터 3명을 편성해 NPC 또는 친구와 즐기는 웹 기반 턴제 챔피언 배틀 게임입니다.">
-  <title>오챔스2 - 챔피언 배틀</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오이붕 턴제 포켓몬 배틀</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
-  <main id="game-wrap">
-    <header>
-      <div class="header-left">
-        <h1>오챔스2 <span>Champion Battle</span></h1>
-        <div class="subtitle">3명의 캐릭터를 편성해 상대와 턴제 배틀을 펼치세요.</div>
-      </div>
-      <div class="header-actions">
-        <button id="btn-sound" onclick="toggleMasterMute()">🔊 SOUND ON</button>
-        <button class="btn-rules" onclick="openRules()">게임 방법</button>
-      </div>
-    </header>
 
-    <section id="lobby-panel">
-      <div class="player-setup">
-        <div class="setup-copy">
-          <strong>트레이너 설정</strong>
-          <span>닉네임은 온라인 대전과 관전 채팅에 표시됩니다.</span>
-        </div>
-        <input id="user-nickname" type="text" maxlength="10" placeholder="닉네임 (최대 10자)" autocomplete="nickname">
+  <div class="top-header">
+    <h1>⚔️ 오이붕 턴제 포켓몬 배틀</h1>
+    <div class="header-btns" role="group" aria-label="전투 정보">
+      <button type="button" class="info-toggle-btn" id="btn-show-info" onclick="openBattleDetailModal()" title="현재 출전 상태와 기술 설명 열기">📊 상세정보</button>
+
+    </div>
+  </div>
+
+  <!-- 1. 로비 -->
+  <div class="lobby-panel" id="lobby-panel">
+    <div class="status-badge" id="net-status" role="status" aria-live="polite">닉네임을 입력하고 배틀룸을 선택하세요</div>
+
+    <div style="margin-bottom: 12px;">
+      <input type="text" id="user-nickname" aria-label="내 닉네임" autocomplete="nickname" placeholder="내 닉네임 입력 (최대 10글자)" maxlength="10" style="padding: 8px 12px; border-radius: 6px; background: #1e293b; color: #fff; border: 1px solid #475569; font-size: 13px; text-align: center; width: 200px;">
+    </div>
+
+    <div class="btn-row" style="margin-bottom: 10px;">
+      <button class="ai-btn" onclick="startAiMode()" style="background: #059669; padding: 8px 16px;">🤖 NPC 싱글 대전 시작</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px; margin: 0 auto;">
+      <div style="display: flex; gap: 6px; align-items: center; background: #1e293b; padding: 6px; border-radius: 6px; border: 1px solid #334155;">
+        <span style="font-size: 11px; font-weight: bold; color: #38bdf8; width: 50px; text-align: left;">1번방</span>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM1', 'player')" style="flex: 1; padding: 6px; background: #0284c7; font-size: 11px;">참가</button>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM1', 'spectator')" style="flex: 1; padding: 6px; background: #7c3aed; font-size: 11px;">관전</button>
       </div>
-
-      <div class="lobby-grid">
-        <article class="lobby-card npc-card">
-          <div class="mode-kicker">SOLO</div>
-          <h2>NPC 연습전</h2>
-          <p>랜덤으로 구성된 NPC 팀과 바로 대전합니다. 기술 효과와 팀 조합을 익히기에 좋습니다.</p>
-          <button class="btn-mode" onclick="startAiMode()">NPC 대전 준비</button>
-        </article>
-
-        <article class="lobby-card online-card">
-          <div class="mode-kicker">ONLINE</div>
-          <h2>친구 대전 · 관전</h2>
-          <p>같은 방 번호를 입력한 두 명이 자동으로 연결됩니다. 경기 중인 방은 관전으로 입장할 수 있습니다.</p>
-          <div class="room-join-row">
-            <input id="room-id" type="text" maxlength="10" placeholder="방 번호" inputmode="numeric">
-            <button onclick="joinRoomByButton(document.getElementById('room-id').value, 'player')">대전 입장</button>
-            <button class="btn-spectate" onclick="joinRoomByButton(document.getElementById('room-id').value, 'spectator')">관전 입장</button>
-          </div>
-          <div id="net-status">온라인 대기 중</div>
-        </article>
+      <div style="display: flex; gap: 6px; align-items: center; background: #1e293b; padding: 6px; border-radius: 6px; border: 1px solid #334155;">
+        <span style="font-size: 11px; font-weight: bold; color: #38bdf8; width: 50px; text-align: left;">2번방</span>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM2', 'player')" style="flex: 1; padding: 6px; background: #0284c7; font-size: 11px;">참가</button>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM2', 'spectator')" style="flex: 1; padding: 6px; background: #7c3aed; font-size: 11px;">관전</button>
       </div>
-    </section>
-
-    <section id="pick-panel">
-      <div class="section-heading">
-        <div>
-          <div class="eyebrow">TEAM SELECT</div>
-          <h2>출전 엔트리 선택</h2>
-        </div>
-        <p>클릭 순서대로 선발 1명과 벤치 2명이 정해집니다. 캐릭터를 다시 누르면 선택이 취소됩니다.</p>
-      </div>
-
-      <div class="pick-layout">
-        <div id="pick-grid"></div>
-        <aside id="char-detail">
-          <div class="detail-copy">
-            <h2 id="d-title">캐릭터 정보</h2>
-            <div id="d-matchup" class="matchup-line"></div>
-            <div id="d-ability"></div>
-            <div id="d-moves"></div>
-          </div>
-          <div class="detail-controls">
-            <button id="btn-ready" onclick="confirmTeam()" disabled>선택 완료 (0/3명 필요)</button>
-            <button id="btn-skin-shop" onclick="openSkinShop()">스킨 상점 · 장착</button>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <section id="battle-screen" aria-label="배틀 화면">
-      <div id="battle-arena" aria-hidden="true">
-        <div id="enemy-sprite" class="sprite-wrap enemy-pos"><span class="sprite-label"></span><span class="condition-tags" hidden></span></div>
-        <div id="player-sprite" class="sprite-wrap player-pos"><span class="sprite-label"></span><span class="condition-tags" hidden></span></div>
-      </div>
-
-      <div class="hud hud-enemy">
-        <div class="hud-topline"><strong id="enemy-name">상대</strong><button class="btn-detail" onclick="openBattleDetail('enemy')">상세</button></div>
-        <div class="hp-row"><span>HP</span><div class="hp-track"><div id="enemy-hp-bar" class="hp-fill"></div></div><span id="enemy-hp-text">0 / 0</span></div>
-        <div id="enemy-stats" class="stat-line"></div>
-        <div id="enemy-badges" class="hud-badges"></div>
-        <div id="enemy-team-mini" class="team-mini"></div>
-      </div>
-
-      <div class="hud hud-player">
-        <div class="hud-topline"><strong id="player-name">내 캐릭터</strong><button class="btn-detail" onclick="openBattleDetail('player')">상세</button></div>
-        <div class="hp-row"><span>HP</span><div class="hp-track"><div id="player-hp-bar" class="hp-fill"></div></div><span id="player-hp-text">0 / 0</span></div>
-        <div id="player-stats" class="stat-line"></div>
-        <div id="player-badges" class="hud-badges"></div>
-        <div id="player-team-mini" class="team-mini"></div>
-      </div>
-
-      <div id="round-summary">3명 엔트리 · 선발 1명 / 벤치 2명</div>
-      <div id="battle-msg">전투 준비 중...</div>
-    </section>
-
-    <section id="battle-bottom">
-      <div id="battle-log-panel">
-        <div class="panel-title-row">
-          <strong>배틀 로그</strong>
-          <span id="log-count-text">0</span>
-        </div>
-        <div id="battle-log-content"></div>
-      </div>
-
-      <div id="section-cmd">
-        <div id="menu-main" class="command-grid">
-          <button onclick="showMoveMenu()"><span>⚔️</span>기술</button>
-          <button onclick="showPokemonMenu(false)"><span>🔄</span>교체</button>
-          <button onclick="toggleBattleLog()"><span>📜</span>로그 확대</button>
-          <button onclick="openBattleDetail('player')"><span>📊</span>상세 정보</button>
-        </div>
-        <div id="menu-moves" class="sub-menu"></div>
-        <div id="menu-pokemon" class="sub-menu"></div>
-        <div id="cmd-waiting">상대의 선택을 기다리는 중...</div>
-        <div id="menu-gameover"></div>
-      </div>
-
-      <div id="chat-panel">
-        <div class="panel-title-row"><strong>채팅</strong><span>최대 200자</span></div>
-        <div id="chat-messages"></div>
-        <div class="chat-row">
-          <input id="chat-input" type="text" maxlength="200" placeholder="메시지를 입력하세요">
-          <button onclick="sendChatMessage()">전송</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <div id="rules-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="rules-title">
-    <div class="modal-card rules-card">
-      <button class="modal-close" onclick="closeRules()" aria-label="닫기">×</button>
-      <div class="eyebrow">HOW TO PLAY</div>
-      <h2 id="rules-title">게임 방법</h2>
-      <div class="rules-grid">
-        <div><strong>1. 팀 편성</strong><p>캐릭터 3명을 고릅니다. 첫 번째는 선발, 나머지는 벤치입니다.</p></div>
-        <div><strong>2. 행동 선택</strong><p>매 턴 기술 또는 교체를 고릅니다. 온라인전은 양쪽 선택이 모이면 턴이 진행됩니다.</p></div>
-        <div><strong>3. 속성과 랭크</strong><p>기술 속성과 캐릭터 속성에 따라 상성이 적용됩니다. 공격·방어·스피드 등 랭크도 피해량과 행동 순서에 영향을 줍니다.</p></div>
-        <div><strong>4. 승리 조건</strong><p>상대 팀의 캐릭터 3명을 모두 쓰러뜨리면 승리합니다.</p></div>
-      </div>
-      <div class="type-chart-wrap">
-        <strong>주요 상성</strong>
-        <div id="rules-type-chart"></div>
+      <div style="display: flex; gap: 6px; align-items: center; background: #1e293b; padding: 6px; border-radius: 6px; border: 1px solid #334155;">
+        <span style="font-size: 11px; font-weight: bold; color: #38bdf8; width: 50px; text-align: left;">3번방</span>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM3', 'player')" style="flex: 1; padding: 6px; background: #0284c7; font-size: 11px;">참가</button>
+        <button class="action-btn" onclick="joinRoomByButton('ROOM3', 'spectator')" style="flex: 1; padding: 6px; background: #7c3aed; font-size: 11px;">관전</button>
       </div>
     </div>
   </div>
 
-  <div id="battle-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
-    <div class="modal-card detail-modal-card">
-      <button class="modal-close" onclick="closeBattleDetail()" aria-label="닫기">×</button>
-      <div class="eyebrow">BATTLE DATA</div>
-      <h2 id="detail-modal-title">상세 능력치</h2>
-      <div id="battle-detail-content"></div>
+  <!-- 2. 엔트리 선택창 -->
+  <div class="pick-container" id="pick-panel">
+    <div style="font-size: 13px; font-weight: 900; color:#38bdf8;">배틀 엔트리 3명 선택 (선발 ➔ 벤치 1 ➔ 벤치 2)</div>
+    <div class="pick-grid" id="pick-grid"></div>
+
+    <div class="char-detail-box" id="char-detail-box">
+      <div class="detail-header">
+        <span class="detail-title" id="d-title">캐릭터를 클릭하면 상세 스펙이 표시됩니다</span>
+        <span class="detail-matchup" id="d-matchup">상성 관계</span>
+      </div>
+      <div class="detail-ability" id="d-ability">특성: -</div>
+      <div class="detail-moves-list" id="d-moves"></div>
+    </div>
+
+    <div class="btn-row" style="margin-top: 4px;">
+      <button class="action-btn" id="btn-ready" onclick="confirmTeam()" disabled>선택 완료 (3명 필요)</button>
     </div>
   </div>
 
-  <div id="skin-shop-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="skin-shop-title">
-    <div class="modal-card skin-shop-card">
-      <button class="modal-close" onclick="closeSkinShop()" aria-label="닫기">×</button>
-      <div class="eyebrow">SKIN COLLECTION</div>
-      <h2 id="skin-shop-title">스킨 상점 · 장착</h2>
-      <p class="skin-shop-desc">캐릭터별 스킨을 해금하고 원하는 외형을 장착할 수 있습니다.</p>
-      <div class="skin-shop-toolbar"><strong>보유 크레딧</strong><span id="skin-credits">0</span></div>
-      <div id="skin-shop-list"></div>
+  <!-- 3. 배틀 필드 & HUD (3마리 볼 아이콘 적용) -->
+  <div class="battle-screen" id="battle-screen">
+    <canvas id="fx-canvas" aria-hidden="true" width="660" height="310"></canvas>
+
+    <!-- 상대방 HUD -->
+    <div class="pokemon-hud hud-enemy" role="button" tabindex="0" aria-label="상대 캐릭터 상세 정보" onclick="openBattleDetailModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBattleDetailModal()}">
+      <div class="hud-top">
+        <span class="hud-name" id="enemy-name">상대</span>
+        <div class="hud-balls">
+          <div class="ball-icon" id="enemy-ball-1"></div>
+          <div class="ball-icon" id="enemy-ball-2"></div>
+          <div class="ball-icon" id="enemy-ball-3"></div>
+        </div>
+      </div>
+      <div class="hp-container"><div class="hp-bar" id="enemy-hp-bar"></div></div>
+      <div class="hp-numbers" id="enemy-hp-num">Lv.50</div>
+      <div class="hud-badges-row" id="enemy-hud-badges"></div>
+    </div>
+
+    <div class="platform platform-enemy"></div>
+    <div class="char-sprite sprite-enemy" id="enemy-sprite" role="img" aria-label="상대 챔피언"><span class="sprite-label">상대</span><span class="condition-tags" aria-hidden="true"></span></div>
+
+    <div class="platform platform-player"></div>
+    <div class="char-sprite sprite-player" id="player-sprite" role="img" aria-label="내 챔피언" onclick="openBattleDetailModal()"><span class="sprite-label">나</span><span class="condition-tags" aria-hidden="true"></span></div>
+
+    <!-- 플레이어 HUD -->
+    <div class="pokemon-hud hud-player" role="button" tabindex="0" aria-label="내 캐릭터 상세 정보" onclick="openBattleDetailModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBattleDetailModal()}">
+      <div class="hud-top">
+        <span class="hud-name" id="player-name">나</span>
+        <div class="hud-balls">
+          <div class="ball-icon" id="player-ball-1"></div>
+          <div class="ball-icon" id="player-ball-2"></div>
+          <div class="ball-icon" id="player-ball-3"></div>
+        </div>
+      </div>
+      <div class="hp-container"><div class="hp-bar" id="player-hp-bar"></div></div>
+      <div class="hp-numbers" id="player-hp-num">200 / 200</div>
+      <div class="hud-badges-row" id="player-hud-badges"></div>
+    </div>
+  </div>
+
+  <!-- 4. 하단 커맨드 & 채팅 -->
+  <div class="battle-bottom" id="battle-bottom">
+    <div class="round-summary" id="round-summary" aria-live="polite"></div>
+    <div class="msg-section">
+      <div class="msg-row">
+        <div class="msg-box" id="battle-msg">대결 상대를 기다리는 중입니다...</div>
+        <button class="log-toggle-btn" id="btn-toggle-log" onclick="toggleBattleLog()">📜 전투로그 펼치기 ▼</button>
+      </div>
+      <div class="battle-log-drawer" id="battle-log-drawer" style="display:none;">
+        <div class="battle-log-header">
+          <span>📜 전체 전투 로그 (역대 턴 기록)</span>
+          <span id="log-count-text">0건 기록됨</span>
+        </div>
+        <div class="battle-log-content" id="battle-log-content"></div>
+      </div>
+    </div>
+
+    <div class="dual-workspace">
+      <!-- 커맨드 패널 -->
+      <div class="panel-box" id="section-cmd">
+        <div class="panel-header-title">
+          <span>⚔️ 배틀 커맨드</span>
+          <span id="cmd-status-indicator" style="font-size:10.5px; color:#38bdf8;">선택 대기</span>
+        </div>
+
+        <div class="cmd-viewport">
+          <div class="cmd-waiting-indicator" id="cmd-waiting">⏳ 턴 진행 중...</div>
+
+          <div class="menu-main" id="menu-main">
+            <button class="btn-fight" onclick="openMoveMenu()">싸운다 (FIGHT)</button>
+            <button class="btn-switch" onclick="openSwitchMenu()">교체 (SWITCH)</button>
+          </div>
+
+          <div class="menu-moves" id="menu-moves" style="display:none;">
+            <button class="btn-move" id="btn-m0" onclick="selectMove(0)">
+              <div class="move-header"><span class="move-title" id="m0-name">-</span><span class="move-tag" id="m0-tag">-</span></div>
+              <div class="move-desc" id="m0-desc">-</div>
+            </button>
+            <button class="btn-move" id="btn-m1" onclick="selectMove(1)">
+              <div class="move-header"><span class="move-title" id="m1-name">-</span><span class="move-tag" id="m1-tag">-</span></div>
+              <div class="move-desc" id="m1-desc">-</div>
+            </button>
+            <button class="btn-move" id="btn-m2" onclick="selectMove(2)">
+              <div class="move-header"><span class="move-title" id="m2-name">-</span><span class="move-tag" id="m2-tag">-</span></div>
+              <div class="move-desc" id="m2-desc">-</div>
+            </button>
+            <button class="btn-move" id="btn-m3" onclick="selectMove(3)">
+              <div class="move-header"><span class="move-title" id="m3-name">-</span><span class="move-tag" id="m3-tag">-</span></div>
+              <div class="move-desc" id="m3-desc">-</div>
+            </button>
+            <button class="sub-btn" style="grid-column: span 2; min-height: 28px; font-size:11.5px; background:#475569;" onclick="backToMain()">뒤로가기</button>
+          </div>
+
+          <div class="menu-pokemon" id="menu-pokemon" style="display:none;"></div>
+          <div class="menu-gameover" id="menu-gameover" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- 배틀 채팅 -->
+      <div class="panel-box" id="section-chat">
+        <div class="panel-header-title">
+          <span>💬 실시간 배틀 채팅</span>
+          <span style="font-size:10px; color:#64748b;">Live</span>
+        </div>
+        <div class="chat-log" id="chat-log">
+          <div class="chat-msg system"><span class="sender">[시스템]</span>실시간 배틀 채팅이 연결되었습니다!</div>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" class="chat-input" id="chat-input" placeholder="메시지 입력 (Enter)" onkeydown="if(event.key==='Enter') sendChatMessage()">
+          <button class="chat-send-btn" onclick="sendChatMessage()">전송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상세정보 모달 -->
+  <div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="detail-modal-title">📊 출전 캐릭터 상세 정보 & 실시간 배틀 현황</div>
+        <button class="modal-close-btn" onclick="closeBattleDetailModal()">✕ 닫기</button>
+      </div>
+      <div class="modal-body" id="modal-body-content"></div>
     </div>
   </div>
 
